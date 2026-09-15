@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sky Weather ML - Manual Input</title>
+    <title>Sky Weather ML - LocalStorage</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background-color: #f0f4f8; padding-top: 40px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         .card { border-radius: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); border: none; }
         #loading { display: none; }
         .thumbnail-img { width: 60px; height: 60px; object-fit: cover; border-radius: 8px; }
+        .section-divider { border-top: 2px dashed #ccc; margin: 40px 0; }
     </style>
 </head>
 <body>
@@ -17,160 +18,68 @@
 <div class="container mb-5">
     <div class="row justify-content-center">
         <div class="col-md-9">
-            <div class="card p-4 p-md-5">
-                <h2 class="text-center mb-4 text-primary">☁️ Sky Weather ML Training</h2>
-                <p class="text-center text-muted">ระบบทำงานบนเบราว์เซอร์ 100% (Serverless)</p>
+            
+            <!-- ส่วนที่ 1: Training Phase -->
+            <div class="card p-4 p-md-5 mb-4 border-primary border-top border-4">
+                <h3 class="text-primary">🛠️ ส่วนที่ 1: Train & Save Model</h3>
+                <p class="text-muted">สอนโมเดลด้วยรูปภาพและบันทึกลงระบบ</p>
                 
-                <!-- ฟอร์มหลัก -->
-                <form id="trainForm" class="mt-4">
-                    <div class="mb-4">
-                        <label for="images" class="form-label"><b>1. อัปโหลดภาพถ่ายท้องฟ้า (เลือกได้หลายไฟล์)</b></label>
-                        <input class="form-control form-control-lg" type="file" id="images" accept="image/*" multiple required>
+                <form id="trainForm" class="mt-3">
+                    <div class="mb-3">
+                        <input class="form-control" type="file" id="images" accept="image/*" multiple required>
                     </div>
 
-                    <!-- ส่วนที่จะแสดงรายการรูปภาพเพื่อให้กรอกวันที่ (ถูกซ่อนไว้ตอนแรก) -->
                     <div id="dateTimeInputSection" style="display: none;">
-                        <label class="form-label mb-3"><b>2. ระบุวันและเวลาของแต่ละภาพ</b></label>
-                        <div id="fileListContainer" class="mb-4">
-                            <!-- รายการไฟล์จะถูกสร้างด้วย JavaScript ที่นี่ -->
-                        </div>
-                        
-                        <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold">เริ่มสกัดสีและ Train Model</button>
+                        <label class="form-label mb-2"><b>ระบุวันและเวลาของแต่ละภาพ</b></label>
+                        <div id="fileListContainer" class="mb-3"></div>
+                        <button type="submit" class="btn btn-primary w-100 fw-bold">เริ่ม Train Model</button>
                     </div>
                 </form>
 
-                <!-- สถานะโหลด -->
-                <div id="loading" class="text-center mt-5">
-                    <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status"></div>
-                    <p class="mt-3 fw-bold text-primary">กำลังประมวลผลภาพและ Train Model...</p>
+                <div id="loading" class="text-center mt-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2 fw-bold text-primary">กำลังประมวลผล...</p>
                 </div>
 
-                <!-- แสดงผลลัพธ์ -->
-                <div id="resultSection" class="mt-5" style="display: none;">
-                    <h4>🎯 ผลการประเมิน (Evaluation)</h4>
-                    <div class="alert alert-success border-0 shadow-sm">
-                        <h5 id="accText" class="mb-1 text-success fw-bold"></h5>
-                        <small>ใช้ K-Nearest Neighbors (KNN) Train จากข้อมูลที่คุณกรอก</small>
+                <!-- ผลลัพธ์การ Train และปุ่ม Save -->
+                <div id="resultSection" class="mt-4" style="display: none;">
+                    <div class="alert alert-success">
+                        <h5 id="accText" class="mb-1 fw-bold"></h5>
                     </div>
+                    <button id="saveModelBtn" class="btn btn-success w-100 fw-bold">💾 บันทึกโมเดลลงเบราว์เซอร์ (Local Storage)</button>
+                </div>
+            </div>
 
-                    <h4 class="mt-5">📊 ข้อมูล Features ที่สกัดจากภาพ</h4>
-                    <div class="table-responsive">
-                        <table class="table table-hover text-center align-middle">
-                            <thead class="table-dark">
-                                <tr>
-                                    <th>ภาพ</th>
-                                    <th>วันเวลาที่บันทึก</th>
-                                    <th>R, G, B (เฉลี่ย)</th>
-                                    <th>สภาพอากาศ (จำลอง)</th>
-                                </tr>
-                            </thead>
-                            <tbody id="dataTableBody">
-                                <!-- ข้อมูลตารางจะถูกแทรกที่นี่ -->
-                            </tbody>
-                        </table>
-                    </div>
+            <!-- ส่วนที่ 2: Inference Phase (การนำไปใช้งาน) -->
+            <div class="card p-4 p-md-5 border-success border-top border-4">
+                <h3 class="text-success">🔮 ส่วนที่ 2: นำโมเดลไปใช้ทำนาย (Inference)</h3>
+                <p class="text-muted">โหลดโมเดลที่บันทึกไว้ เพื่อทำนายสภาพอากาศของรูปภาพใหม่</p>
+                
+                <div class="d-flex gap-2 mb-4">
+                    <button id="loadModelBtn" class="btn btn-outline-success w-50">📂 โหลดโมเดลล่าสุด</button>
+                    <button id="clearModelBtn" class="btn btn-outline-danger w-50">🗑️ ลบโมเดลทิ้ง</button>
                 </div>
                 
-                <!-- Canvas ที่ซ่อนไว้สำหรับประมวลผลภาพ -->
-                <canvas id="hiddenCanvas" style="display: none;"></canvas>
+                <div id="modelStatusInfo" class="alert alert-secondary text-center">ยังไม่ได้โหลดโมเดล</div>
+
+                <div id="predictSection" style="display: none;">
+                    <label class="form-label fw-bold">อัปโหลดภาพท้องฟ้าภาพใหม่เพื่อทำนาย:</label>
+                    <input class="form-control mb-3" type="file" id="predictImage" accept="image/*">
+                    
+                    <div id="predictResult" class="alert alert-info text-center" style="display:none;">
+                        <!-- ผลลัพธ์การทำนายจะแสดงที่นี่ -->
+                    </div>
+                </div>
             </div>
+
+            <canvas id="hiddenCanvas" style="display: none;"></canvas>
         </div>
     </div>
 </div>
 
 <script>
     // ==========================================
-    // UI: จัดการเมื่อผู้ใช้เลือกไฟล์ภาพ
-    // ==========================================
-    document.getElementById('images').addEventListener('change', function(e) {
-        const files = e.target.files;
-        const container = document.getElementById('fileListContainer');
-        const section = document.getElementById('dateTimeInputSection');
-        
-        container.innerHTML = ''; // ล้างข้อมูลเก่า
-        
-        if (files.length > 0) {
-            section.style.display = 'block'; // แสดงส่วนกรอกวันที่
-            
-            // วนลูปสร้างช่องกรอกวันที่สำหรับแต่ละไฟล์
-            Array.from(files).forEach((file, index) => {
-                const previewUrl = URL.createObjectURL(file);
-                
-                const div = document.createElement('div');
-                div.className = 'd-flex flex-column flex-md-row align-items-md-center justify-content-between mb-3 p-3 border rounded bg-white shadow-sm';
-                div.innerHTML = `
-                    <div class="d-flex align-items-center mb-2 mb-md-0">
-                        <img src="${previewUrl}" class="thumbnail-img me-3">
-                        <span class="fw-bold text-truncate" style="max-width: 150px;" title="${file.name}">${file.name}</span>
-                    </div>
-                    <div>
-                        <input type="datetime-local" class="form-control datetime-input" data-index="${index}" required>
-                    </div>
-                `;
-                container.appendChild(div);
-            });
-        } else {
-            section.style.display = 'none';
-        }
-    });
-
-    // ==========================================
-    // 1. Image Processing Functions
-    // ==========================================
-    function extractColors(file) {
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const img = new Image();
-                img.onload = function() {
-                    const canvas = document.getElementById('hiddenCanvas');
-                    const ctx = canvas.getContext('2d');
-                    
-                    canvas.width = 400;
-                    canvas.height = 300;
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    
-                    const skyHeight = Math.floor(canvas.height * 0.3); // ตัด 30% บน
-                    const imgData = ctx.getImageData(0, 0, canvas.width, skyHeight);
-                    const data = imgData.data;
-                    
-                    let rSum = 0, gSum = 0, bSum = 0;
-                    let pixelCount = data.length / 4;
-                    
-                    for (let i = 0; i < data.length; i += 4) {
-                        rSum += data[i];
-                        gSum += data[i+1];
-                        bSum += data[i+2];
-                    }
-                    
-                    resolve({
-                        previewUrl: e.target.result,
-                        filename: file.name,
-                        rMean: parseFloat((rSum / pixelCount).toFixed(2)),
-                        gMean: parseFloat((gSum / pixelCount).toFixed(2)),
-                        bMean: parseFloat((bSum / pixelCount).toFixed(2))
-                    });
-                };
-                img.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
-        });
-    }
-
-    // ==========================================
-    // 2. Mock Weather Data from Manual Time
-    // ==========================================
-    function getMockWeather(hour) {
-        // สร้างเงื่อนไขจำลอง: ถ้าหลัง 15:00 น. หรือก่อน 06:00 น. ให้เป็นเมฆมาก (Gloomy)
-        if (hour >= 15 || hour < 6) {
-            return { status: "Gloomy", label: 0 };
-        } else {
-            return { status: "Clear", label: 1 };
-        }
-    }
-
-    // ==========================================
-    // 3. Simple ML: K-Nearest Neighbors (KNN)
+    // Core Machine Learning Class (KNN)
     // ==========================================
     class SimpleKNN {
         constructor() { this.data = []; }
@@ -190,83 +99,165 @@
         distance(p1, p2) {
             return Math.sqrt(Math.pow(p1[0]-p2[0],2) + Math.pow(p1[1]-p2[1],2) + Math.pow(p1[2]-p2[2],2));
         }
+
+        // --- เพิ่มฟังก์ชัน Save / Load ด้วย Local Storage ---
+        saveToStorage() {
+            // แปลงข้อมูล Array เป็นข้อความ JSON แล้วบันทึก
+            const modelJSON = JSON.stringify(this.data);
+            localStorage.setItem('skyWeatherModel', modelJSON);
+        }
+        loadFromStorage() {
+            // ดึงข้อความ JSON กลับมาแปลงเป็น Array
+            const modelJSON = localStorage.getItem('skyWeatherModel');
+            if (modelJSON) {
+                this.data = JSON.parse(modelJSON);
+                return true; // โหลดสำเร็จ
+            }
+            return false; // ไม่มีโมเดล
+        }
     }
 
+    // สร้าง Instance ของโมเดลไว้ใช้งานส่วนกลาง
+    const globalModel = new SimpleKNN();
+
     // ==========================================
-    // 4. Main Submit Event
+    // Image Processing & UI Logic
     // ==========================================
+    
+    // ฟังก์ชันสกัดสี (ใช้งานซ้ำได้ทั้งตอน Train และ Predict)
+    function extractColors(file) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.getElementById('hiddenCanvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = 400; canvas.height = 300;
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    
+                    const skyHeight = Math.floor(canvas.height * 0.3);
+                    const imgData = ctx.getImageData(0, 0, canvas.width, skyHeight);
+                    const data = imgData.data;
+                    
+                    let rSum = 0, gSum = 0, bSum = 0;
+                    let count = data.length / 4;
+                    for (let i = 0; i < data.length; i += 4) { rSum += data[i]; gSum += data[i+1]; bSum += data[i+2]; }
+                    
+                    resolve({
+                        rMean: parseFloat((rSum/count).toFixed(2)),
+                        gMean: parseFloat((gSum/count).toFixed(2)),
+                        bMean: parseFloat((bSum/count).toFixed(2))
+                    });
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // ฟังก์ชันจำลองอากาศ
+    function getMockWeather(hour) { return (hour >= 15 || hour < 6) ? 0 : 1; }
+
+    // จัดการฟอร์มรูปภาพตอน Train
+    document.getElementById('images').addEventListener('change', function(e) {
+        const files = e.target.files;
+        const container = document.getElementById('fileListContainer');
+        const section = document.getElementById('dateTimeInputSection');
+        container.innerHTML = '';
+        if (files.length > 0) {
+            section.style.display = 'block';
+            Array.from(files).forEach((file, index) => {
+                const div = document.createElement('div');
+                div.className = 'd-flex justify-content-between mb-2 p-2 border rounded bg-white';
+                div.innerHTML = `<span class="fw-bold">${file.name}</span>
+                                 <input type="datetime-local" class="form-control datetime-input w-50" required>`;
+                container.appendChild(div);
+            });
+        } else { section.style.display = 'none'; }
+    });
+
+    // เริ่ม Train Model
     document.getElementById('trainForm').addEventListener('submit', async function(e) {
         e.preventDefault();
-        
         const files = document.getElementById('images').files;
         const datetimeInputs = document.querySelectorAll('.datetime-input');
         
-        document.getElementById('loading').style.display = 'block';
-        document.getElementById('resultSection').style.display = 'none';
-        document.getElementById('dateTimeInputSection').style.display = 'none';
-
-        let processedData = [];
-        let X = [];
-        let y = [];
-
-        // วนลูปอ่านค่าสี และอ่านค่า วัน/เวลา ที่ผู้ใช้กรอก
+        let X = [], y = [];
         for (let i = 0; i < files.length; i++) {
-            const colorFeatures = await extractColors(files[i]);
-            
-            // ดึงค่า Date & Time ที่ผู้ใช้กรอก
-            const dateTimeValue = datetimeInputs[i].value; // รูปแบบ: "2023-10-01T14:30"
-            const dateObj = new Date(dateTimeValue);
-            const hour = dateObj.getHours(); // สกัดเฉพาะชั่วโมงมาประเมินสภาพอากาศ
-            
-            // จำลองสภาพอากาศโดยอิงจากชั่วโมงที่ผู้ใช้กรอกจริงๆ
-            const weather = getMockWeather(hour);
-            
-            processedData.push({
-                ...colorFeatures,
-                dateTimeFormatted: dateTimeValue.replace('T', ' '),
-                weatherStatus: weather.status
-            });
-
-            X.push([colorFeatures.rMean, colorFeatures.gMean, colorFeatures.bMean]);
-            y.push(weather.label);
+            const color = await extractColors(files[i]);
+            const hour = new Date(datetimeInputs[i].value).getHours();
+            X.push([color.rMean, color.gMean, color.bMean]);
+            y.push(getMockWeather(hour));
         }
 
-        // Training
-        const knn = new SimpleKNN();
-        knn.fit(X, y); 
-        const predictions = knn.predict(X); 
-        
-        let correct = 0;
-        for(let i=0; i<y.length; i++) {
-            if(y[i] === predictions[i]) correct++;
-        }
-        let accuracy = (correct / y.length) * 100;
-
-        // วาดตารางแสดงผลลัพธ์
-        const tbody = document.getElementById('dataTableBody');
-        tbody.innerHTML = '';
-        
-        processedData.forEach(row => {
-            const statusBadge = row.weatherStatus === 'Clear' ? 
-                '<span class="badge bg-warning text-dark">Clear ☀️</span>' : 
-                '<span class="badge bg-secondary">Gloomy ☁️</span>';
-
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td><img src="${row.previewUrl}" class="thumbnail-img"></td>
-                <td>
-                    <strong>${row.filename}</strong><br>
-                    <small class="text-muted">${row.dateTimeFormatted}</small>
-                </td>
-                <td><span style="color:red">${row.rMean}</span>, <span style="color:green">${row.gMean}</span>, <span style="color:blue">${row.bMean}</span></td>
-                <td>${statusBadge}</td>
-            `;
-            tbody.appendChild(tr);
-        });
-
-        document.getElementById('accText').innerText = `ความแม่นยำของโมเดล: ${accuracy.toFixed(2)}%`;
-        document.getElementById('loading').style.display = 'none';
+        globalModel.fit(X, y); 
+        document.getElementById('accText').innerText = `✅ Train โมเดลสำเร็จ! (เรียนรู้ภาพไป ${files.length} ภาพ)`;
         document.getElementById('resultSection').style.display = 'block';
+    });
+
+    // ==========================================
+    // Save / Load Model Events
+    // ==========================================
+    
+    // กดปุ่ม Save
+    document.getElementById('saveModelBtn').addEventListener('click', function() {
+        if(globalModel.data.length > 0) {
+            globalModel.saveToStorage();
+            alert("💾 บันทึกโมเดลลง Local Storage เรียบร้อยแล้ว!");
+        } else {
+            alert("ยังไม่มีข้อมูลโมเดล กรุณา Train ก่อน");
+        }
+    });
+
+    // กดปุ่ม Load
+    document.getElementById('loadModelBtn').addEventListener('click', function() {
+        const success = globalModel.loadFromStorage();
+        if (success) {
+            document.getElementById('modelStatusInfo').className = "alert alert-success text-center";
+            document.getElementById('modelStatusInfo').innerText = `✅ โหลดโมเดลสำเร็จ (ฐานข้อมูลมี ${globalModel.data.length} รายการ)`;
+            document.getElementById('predictSection').style.display = 'block';
+        } else {
+            alert("❌ ไม่พบโมเดลในระบบ กรุณา Train และ Save ก่อน");
+        }
+    });
+
+    // กดปุ่ม Clear
+    document.getElementById('clearModelBtn').addEventListener('click', function() {
+        localStorage.removeItem('skyWeatherModel');
+        globalModel.data = [];
+        document.getElementById('modelStatusInfo').className = "alert alert-secondary text-center";
+        document.getElementById('modelStatusInfo').innerText = "🗑️ ลบโมเดลเรียบร้อยแล้ว";
+        document.getElementById('predictSection').style.display = 'none';
+    });
+
+    // ==========================================
+    // Prediction Phase (ใช้งานโมเดล)
+    // ==========================================
+    document.getElementById('predictImage').addEventListener('change', async function(e) {
+        const file = e.target.files[0];
+        if(!file) return;
+
+        // 1. สกัดสีจากภาพใหม่
+        const color = await extractColors(file);
+        
+        // 2. โยนค่าสีให้โมเดลทำนาย
+        const result = globalModel.predict([[color.rMean, color.gMean, color.bMean]]);
+        
+        // 3. แปลผลลัพธ์ (0 = Gloomy, 1 = Clear)
+        const predictionLabel = result[0];
+        const statusText = predictionLabel === 1 ? "☀️ ท้องฟ้าแจ่มใส (Clear)" : "☁️ อากาศหม่น/เมฆมาก (Gloomy)";
+        const statusClass = predictionLabel === 1 ? "alert-warning" : "alert-secondary";
+
+        // แสดงผล
+        const resDiv = document.getElementById('predictResult');
+        resDiv.style.display = 'block';
+        resDiv.className = `alert ${statusClass} text-center mt-3`;
+        resDiv.innerHTML = `
+            <h5>ผลการวิเคราะห์ภาพ:</h5>
+            <h3 class="fw-bold">${statusText}</h3>
+            <small class="text-muted">ค่าสีเฉลี่ย: R=${color.rMean}, G=${color.gMean}, B=${color.bMean}</small>
+        `;
     });
 </script>
 
