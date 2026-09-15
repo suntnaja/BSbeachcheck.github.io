@@ -4,16 +4,45 @@
 class SimpleKNN {
     constructor() { 
         this.data = []; 
+        this.pendingUploads = []; // เก็บไฟล์รูปที่รอการอัปโหลดขึ้น GitHub
     }
     
-    // นำข้อมูลใหม่ไปต่อท้าย (Train Action)
-    appendFit(X, y) { 
-        const newData = X.map((features, i) => ({ features, label: y[i] }));
-        this.data = [...this.data, ...newData]; 
+    // รับค่าข้อมูลใหม่ พร้อมข้อมูล Metadata (ชื่อไฟล์, ไฟล์รูป)
+    appendFit(features, label, metadata) { 
+        // บันทึกข้อมูลลงฐานข้อมูลชั่วคราวบนเบราว์เซอร์
+        this.data.push({
+            filename: metadata.filename,
+            image_path: metadata.imagePath,
+            timestamp: metadata.dateTime,
+            features: features,
+            label: label
+        });
+
+        // เก็บไฟล์รูปรอไว้ในคิวสำหรับการอัปโหลด
+        this.pendingUploads.push({
+            fileData: metadata.fileObj,
+            uploadPath: metadata.imagePath
+        });
     }
 
-    // ฟังก์ชันคุยกับ GitHub API แบบ Merge (อัปเดตไฟล์)
-    async saveAndUpdateGitHub(owner, repo, path, token) {
+    // ฟังก์ชันอัปโหลดรูปภาพขึ้น GitHub แบบ Base64
+    async uploadImageToGitHub(owner, repo, path, fileBase64, token) {
+        const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+        const headers = {
+            "Authorization": `token ${token}`,
+            "Accept": "application/vnd.github.v3+json",
+            "Content-Type": "application/json"
+        };
+        const body = {
+            message: `Upload image file: ${path}`,
+            content: fileBase64
+        };
+        const res = await fetch(url, { method: "PUT", headers, body: JSON.stringify(body) });
+        return res.ok;
+    }
+
+    // ฟังก์ชันอัปเดตไฟล์ฐานข้อมูล model_db.json
+    async updateDatabaseGitHub(owner, repo, path, token) {
         const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
         const headers = {
             "Authorization": `token ${token}`,
@@ -24,6 +53,7 @@ class SimpleKNN {
         let sha = null;
         let existingData = [];
 
+        // 1. ดึงไฟล์เดิม (ถ้ามี)
         try {
             const getRes = await fetch(url, { headers });
             if (getRes.ok) {
@@ -33,37 +63,24 @@ class SimpleKNN {
                 existingData = JSON.parse(decoded);
             }
         } catch (e) { 
-            console.log("No existing file found. Will create a new one."); 
+            console.log("No existing JSON database found. Creating a new one."); 
         }
 
-        // นำข้อมูลเก่า + ข้อมูลใหม่ มารวมกัน
+        // 2. รวมข้อมูลเก่ากับข้อมูลใหม่
         let combined = [...existingData, ...this.data];
         
-        // กรองข้อมูลซ้ำซ้อน (Deduplication)
-        let uniqueData = [];
-        let seen = new Set();
-        for (let item of combined) {
-            let key = `${item.features.join('_')}_${item.label}`;
-            if (!seen.has(key)) {
-                seen.add(key);
-                uniqueData.push(item);
-            }
-        }
-        
-        this.data = uniqueData;
-
-        // แปลงข้อมูลและ Push กลับขึ้น GitHub
-        const jsonString = JSON.stringify(this.data);
+        // 3. แปลงข้อมูลและ Push กลับ
+        const jsonString = JSON.stringify(combined, null, 2); // จัด Format JSON ให้สวยงามด้วย
         const base64Content = btoa(unescape(encodeURIComponent(jsonString)));
 
         const body = {
-            message: `Update ML Model (Total features: ${this.data.length})`,
+            message: `Update ML DB (Added ${this.data.length} new records. Total: ${combined.length})`,
             content: base64Content
         };
         if (sha) body.sha = sha; 
 
         const putRes = await fetch(url, { method: "PUT", headers, body: JSON.stringify(body) });
-        return { success: putRes.ok, totalCount: this.data.length };
+        return { success: putRes.ok, totalCount: combined.length };
     }
 }
 
@@ -72,6 +89,21 @@ const globalModel = new SimpleKNN();
 // ==========================================
 // 2. Image Processing & Helper Functions
 // ==========================================
+
+// แปลงไฟล์รูปภาพเป็น Base64 บริสุทธิ์ (ตัด header ออก) สำหรับ GitHub API
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => {
+            // ตัดส่วน "data:image/jpeg;base64," ด้านหน้าทิ้ง
+            const base64String = reader.result.split(',')[1];
+            resolve(base64String);
+        };
+        reader.onerror = error => reject(error);
+    });
+}
+
 function extractColors(file) {
     return new Promise((resolve) => {
         const reader = new FileReader();
@@ -134,53 +166,87 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Action 2: เมื่อกดปุ่ม Train (เริ่มสกัดสี)
+    // Action 2: เมื่อกดปุ่ม Train (เริ่มสกัดสีและเก็บรูปลงคิว)
     document.getElementById('trainForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         const files = document.getElementById('images').files;
         const inputs = document.querySelectorAll('.datetime-input');
+        const imgFolder = document.getElementById('ghImageFolder').value.replace(/\/$/, ""); // ลบ / ท้ายสุดถ้ามี
         
-        document.getElementById('loadingText').innerText = "กำลังสกัดค่าสีและเรียนรู้ภาพใหม่...";
+        document.getElementById('loadingText').innerText = "กำลังสกัดค่าสีและเตรียมข้อมูลภาพ...";
         document.getElementById('loading').style.display = 'block';
         document.getElementById('resultSection').style.display = 'none';
 
-        let X = [], y = [];
+        // วนลูปจัดการแต่ละไฟล์
         for (let i = 0; i < files.length; i++) {
-            const color = await extractColors(files[i]);
-            X.push([color.rMean, color.gMean, color.bMean]);
-            y.push(getMockWeather(new Date(inputs[i].value).getHours()));
-        }
+            const file = files[i];
+            const color = await extractColors(file);
+            const inputTime = inputs[i].value; // เวลาที่ผู้ใช้กรอก
+            const label = getMockWeather(new Date(inputTime).getHours());
+            
+            // สร้างชื่อไฟล์ใหม่ให้ Unique (เติม Timestamp ด้านหน้า ป้องกันชื่อซ้ำ)
+            const uniqueFilename = `${Date.now()}_${file.name}`;
+            const fullImagePath = `${imgFolder}/${uniqueFilename}`; // เช่น images/169000123_sky.jpg
 
-        // Action: เอาข้อมูลไป Train โมเดล
-        globalModel.appendFit(X, y);
+            const features = [color.rMean, color.gMean, color.bMean];
+            const metadata = {
+                filename: uniqueFilename,
+                imagePath: fullImagePath,
+                dateTime: inputTime,
+                fileObj: file // ส่งไฟล์อ็อบเจกต์เต็มไปด้วยเพื่อรออัปโหลด
+            };
+
+            // โยนข้อมูลให้ Class จัดการ
+            globalModel.appendFit(features, label, metadata);
+        }
         
         document.getElementById('loading').style.display = 'none';
-        document.getElementById('accText').innerText = `✅ ประมวลผลเสร็จสิ้น! (เตรียมพร้อม ${files.length} ภาพ)`;
+        document.getElementById('accText').innerText = `✅ สกัดฟีเจอร์เสร็จสิ้น! (พร้อมอัปโหลด ${files.length} ภาพ)`;
         document.getElementById('resultSection').style.display = 'block';
     });
 
-    // Action 3: เมื่อกดเซฟและอัปเดตโมเดลขึ้น GitHub
+    // Action 3: เมื่อกดเซฟ (อัปโหลดรูป -> อัปเดต JSON DB)
     document.getElementById('saveModelBtn').addEventListener('click', async function() {
         const owner = document.getElementById('ghOwner').value;
         const repo = document.getElementById('ghRepo').value;
-        const path = document.getElementById('ghPath').value;
+        const path = document.getElementById('ghPath').value; // เช่น model_db.json
         const token = document.getElementById('ghToken').value;
 
         if(!owner || !repo || !token) return alert("กรุณากรอกข้อมูล GitHub ให้ครบ (รวมถึง Token)");
-        
-        document.getElementById('loadingText').innerText = "กำลังดึงข้อมูลเดิมมาผสาน และอัปเดตไฟล์ขึ้น GitHub...";
+        if(globalModel.pendingUploads.length === 0) return alert("ไม่มีข้อมูลให้บันทึก กรุณาอัปโหลดรูปก่อน");
+
         document.getElementById('loading').style.display = 'block';
         
         try {
-            const result = await globalModel.saveAndUpdateGitHub(owner, repo, path, token);
-            if(result.success) {
-                alert(`☁️ อัปเดตไฟล์โมเดลขึ้น GitHub สำเร็จ!\n(ตอนนี้ฐานข้อมูลมีข้อมูลทั้งหมด ${result.totalCount} ชุด)`);
-                document.getElementById('accText').innerText = `☁️ อัปเดตขึ้น GitHub แล้ว (รวมทั้งหมด ${result.totalCount} ชุด)`;
+            // 3.1 อัปโหลดรูปภาพขึ้น GitHub ทีละรูป
+            const totalFiles = globalModel.pendingUploads.length;
+            for (let i = 0; i < totalFiles; i++) {
+                document.getElementById('loadingText').innerText = `กำลังอัปโหลดรูปภาพที่ ${i+1} จาก ${totalFiles}...`;
                 
-                // ล้างข้อมูลชั่วคราวทิ้งหลังอัปเดตเสร็จ ป้องกันการอัปเดตซ้ำ
-                globalModel.data = [];
+                const uploadItem = globalModel.pendingUploads[i];
+                const base64Data = await fileToBase64(uploadItem.fileData);
+                
+                await globalModel.uploadImageToGitHub(
+                    owner, repo, uploadItem.uploadPath, base64Data, token
+                );
             }
-            else alert("❌ เกิดข้อผิดพลาด ตรวจสอบ Token, ชื่อ User หรือ Repo อีกครั้ง");
+
+            // 3.2 อัปเดตฐานข้อมูล JSON
+            document.getElementById('loadingText').innerText = "รูปภาพอัปโหลดสำเร็จ! กำลังผสานฐานข้อมูล JSON...";
+            const result = await globalModel.updateDatabaseGitHub(owner, repo, path, token);
+            
+            if(result.success) {
+                alert(`☁️ เสร็จสิ้นสมบูรณ์!\nอัปโหลดรูปภาพ ${totalFiles} ไฟล์\nและอัปเดตฐานข้อมูล (มีข้อมูลทั้งหมด ${result.totalCount} ชุด)`);
+                document.getElementById('accText').innerText = `☁️ อัปเดตสำเร็จ! (ข้อมูลในระบบทั้งหมด ${result.totalCount} ชุด)`;
+                
+                // ล้างข้อมูลเพื่อป้องกันการกดเบิ้ล
+                globalModel.data = [];
+                globalModel.pendingUploads = [];
+                document.getElementById('trainForm').reset();
+                document.getElementById('fileListContainer').innerHTML = '';
+                document.getElementById('dateTimeInputSection').style.display = 'none';
+                document.getElementById('saveModelBtn').disabled = true; // ป้องกันกดซ้ำ
+            }
         } catch(e) { 
             alert("❌ Error: " + e.message); 
         }
