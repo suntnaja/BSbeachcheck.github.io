@@ -15,14 +15,13 @@ def load_and_prepare_data(json_file_path):
     df = pd.DataFrame(data)
     print(f"จำนวนข้อมูลทั้งหมดที่โหลดได้: {len(df)} รายการ")
     
-    # 🌟 ปรับปรุง: เพิ่มคอลัมน์สภาพอากาศใหม่จาก TMD API เข้าไปในระบบ
+    # 🌟 ปรับปรุง: เปลี่ยนชื่อคอลัมน์ให้ตรงกับที่ดึงมาจาก weatherdb.csv
     required_columns = [
         'R_mean', 'G_mean', 'B_mean', 'H_mean', 'S_mean', 'V_mean', 
-        'env_tc', 'env_rh', 'env_rain', 'env_cloudlow', 'env_cloudmed', 'env_cloudhigh', 'env_swdown',
+        'env_temp', 'env_humidity', 'env_precip', 'env_cloudcover', 'env_visibility', 'env_solarradiation',
         'label'
     ]
     
-    # เช็คว่ามีคอลัมน์ครบไหม (ป้องกัน Error หากมีข้อมูลเก่าจากเวอร์ชันก่อนปนอยู่)
     missing_cols = [col for col in required_columns if col not in df.columns]
     if missing_cols:
         print(f"⚠️ คำเตือน: ข้อมูลเก่าไม่มีคอลัมน์ต่อไปนี้: {missing_cols}")
@@ -34,18 +33,17 @@ def load_and_prepare_data(json_file_path):
     return df_clean
 
 def train_and_evaluate(df):
-    print("\nเริ่มกระบวนการ Train โมเดลด้วยข้อมูลสี + ข้อมูลอุตุฯ...")
+    print("\nเริ่มกระบวนการ Train โมเดลด้วยข้อมูลสี + ข้อมูลจาก CSV...")
     
-    # 🌟 ปรับปรุง: นำข้อมูลสภาพอากาศมาร่วมสอนโมเดล (Features)
+    # 🌟 ปรับปรุง: อัปเดต Features ให้ตรงกับข้อมูลชุดใหม่
     features = [
         'R_mean', 'G_mean', 'B_mean', 'H_mean', 'S_mean', 'V_mean',
-        'env_tc', 'env_rh', 'env_rain', 'env_cloudlow', 'env_cloudmed', 'env_cloudhigh', 'env_swdown'
+        'env_temp', 'env_humidity', 'env_precip', 'env_cloudcover', 'env_visibility', 'env_solarradiation'
     ]
     
     X = df[features]
     y = df['label']
     
-    # กรณีที่ข้อมูลยังน้อยเกินไปจนไม่สามารถแบ่ง Stratify ได้ ให้ยกเลิก Stratify ชั่วคราว
     try:
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
     except ValueError:
@@ -57,7 +55,6 @@ def train_and_evaluate(df):
     model = RandomForestClassifier(n_estimators=100, max_depth=10, random_state=42)
     model.fit(X_train, y_train)
     
-    # ประเมินผล
     print("="*40)
     print("🎯 ผลการประเมินความแม่นยำ (Evaluation Results)")
     print("="*40)
@@ -72,7 +69,6 @@ def train_and_evaluate(df):
     except Exception:
         print(classification_report(y_test, y_pred))
 
-    # 🌟 ฟีเจอร์แถม: จัดอันดับความสำคัญของตัวแปร (Feature Importance)
     print("\n📊 ตัวแปรที่มีผลต่อการตัดสินใจของโมเดลมากที่สุด:")
     importances = model.feature_importances_
     feature_imp_df = pd.DataFrame({'Feature': features, 'Importance': importances})
