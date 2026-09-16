@@ -1,794 +1,317 @@
-[
-  {
-    "image_path": "images/1789547484020_6205550f545aa1cd5206db4a595b812d.jpg",
-    "timestamp": "2026-09-16T15:31",
-    "weather_status": "Clear",
-    "conditions_desc": "Partially cloudy",
-    "label": 1,
-    "env_cloudcover": 43.6,
-    "env_visibility": 8.4,
-    "env_humidity": 72.83,
-    "env_precip": 0,
-    "env_solarradiation": 689,
-    "R_mean": 139.61,
-    "G_mean": 138.73,
-    "B_mean": 202.11,
-    "H_mean": 120,
-    "S_mean": 80,
-    "V_mean": 202
-  },
-  {
-    "image_path": "images/1789548328559_IMG_1725.jpeg",
-    "timestamp": "2024-11-03T17:39",
-    "weather_status": "Clear",
-    "conditions_desc": "Partially cloudy",
-    "label": 1,
-    "env_cloudcover": 30,
-    "env_visibility": 9.9,
-    "env_humidity": 54.26,
-    "env_precip": 0,
-    "env_solarradiation": 42,
-    "R_mean": 223.22,
-    "G_mean": 183.22,
-    "B_mean": 144.16,
-    "H_mean": 15,
-    "S_mean": 90,
-    "V_mean": 223
-  },
-  {
-    "image_path": "images/1789548391756_IMG_1736.jpeg",
-    "timestamp": "2024-11-03T18:03",
-    "weather_status": "Clear",
-    "conditions_desc": "Partially cloudy",
-    "label": 1,
-    "env_cloudcover": 30,
-    "env_visibility": 9.9,
-    "env_humidity": 59.35,
-    "env_precip": 0,
-    "env_solarradiation": 0,
-    "R_mean": 131.81,
-    "G_mean": 125.92,
-    "B_mean": 131.65,
-    "H_mean": 150,
-    "S_mean": 11,
-    "V_mean": 132
-  },
-  {
-    "image_path": "images/1789548458825_IMG_6968.jpeg",
-    "timestamp": "2025-10-17T11:02",
-    "weather_status": "Clear",
-    "conditions_desc": "Partially cloudy",
-    "label": 1,
-    "env_cloudcover": 25,
-    "env_visibility": 10,
-    "env_humidity": 68.69,
-    "env_precip": 0,
-    "env_solarradiation": 684,
-    "R_mean": 103.77,
-    "G_mean": 160.43,
-    "B_mean": 220.14,
-    "H_mean": 105,
-    "S_mean": 135,
-    "V_mean": 220
-  },
-  {
-    "image_path": "images/1789548451068_1000042115.jpg",
-    "timestamp": "2026-09-07T18:24",
-    "weather_status": "Clear",
-    "conditions_desc": "Partially cloudy",
-    "label": 1,
-    "env_cloudcover": 41,
-    "env_visibility": 10,
-    "env_humidity": 66.23,
-    "env_precip": 0,
-    "env_solarradiation": 9,
-    "R_mean": 98.11,
-    "G_mean": 114.67,
-    "B_mean": 126.95,
-    "H_mean": 102,
-    "S_mean": 58,
-    "V_mean": 127
-  },
-  {
-    "image_path": "images/1789548836837_1000024330.jpg",
-    "timestamp": "2025-12-24T17:48",
-    "weather_status": "Error",
-    "conditions_desc": "API Error",
-    "label": 1,
-    "env_cloudcover": 0,
-    "env_visibility": 0,
-    "env_humidity": 0,
-    "env_precip": 0,
-    "env_solarradiation": 0,
-    "R_mean": 173.27,
-    "G_mean": 176.72,
-    "B_mean": 178.04,
-    "H_mean": 98,
-    "S_mean": 7,
-    "V_mean": 178
-  },
-  {
-    "image_path": "images/1789549017427_1000014353.jpg",
-    "timestamp": "2025-07-15T19:02",
-    "weather_status": "Error",
-    "conditions_desc": "API Error",
-    "label": 1,
-    "env_cloudcover": 0,
-    "env_visibility": 0,
-    "env_humidity": 0,
-    "env_precip": 0,
-    "env_solarradiation": 0,
-    "R_mean": 140.95,
-    "G_mean": 134.28,
-    "B_mean": 146.86,
-    "H_mean": 135,
-    "S_mean": 22,
-    "V_mean": 147
-  },
-  {
-    "image_path": "images/1789549047268_IMG_2334.jpeg",
-    "timestamp": "2026-09-16T08:00",
-    "weather_status": "Clear",
-    "conditions_desc": "Partially cloudy",
-    "label": 1,
-    "env_cloudcover": 25,
-    "env_visibility": 9.4,
-    "env_humidity": 94.32,
-    "env_precip": 0,
-    "env_solarradiation": 107,
-    "R_mean": 154.35,
-    "G_mean": 181.82,
-    "B_mean": 209.69,
-    "H_mean": 105,
-    "S_mean": 67,
-    "V_mean": 210
-  },
-  {
-    "image_path": "images/1789549245378_20251017_110652.jpg",
-    "timestamp": "2025-10-17T11:06",
-    "weather_status": "Error",
-    "conditions_desc": "API Error",
-    "label": 1,
-    "env_cloudcover": 0,
-    "env_visibility": 0,
-    "env_humidity": 0,
-    "env_precip": 0,
-    "env_solarradiation": 0,
-    "R_mean": 73.96,
-    "G_mean": 99.19,
-    "B_mean": 132.59,
-    "H_mean": 106,
-    "S_mean": 113,
-    "V_mean": 133
-  },
-  {
-    "image_path": "images/1789549322789_20251018_175145(1).jpg",
-    "timestamp": "2025-10-18T17:51",
-    "weather_status": "Error",
-    "conditions_desc": "API Error",
-    "label": 1,
-    "env_cloudcover": 0,
-    "env_visibility": 0,
-    "env_humidity": 0,
-    "env_precip": 0,
-    "env_solarradiation": 0,
-    "R_mean": 201.9,
-    "G_mean": 121.59,
-    "B_mean": 56.5,
-    "H_mean": 13,
-    "S_mean": 184,
-    "V_mean": 202
-  },
-  {
-    "image_path": "images/1789549330965_IMG_1048.jpeg",
-    "timestamp": "2026-03-13T18:25",
-    "weather_status": "Error",
-    "conditions_desc": "API Error",
-    "label": 1,
-    "env_cloudcover": 0,
-    "env_visibility": 0,
-    "env_humidity": 0,
-    "env_precip": 0,
-    "env_solarradiation": 0,
-    "R_mean": 196.48,
-    "G_mean": 187.43,
-    "B_mean": 170.49,
-    "H_mean": 19,
-    "S_mean": 34,
-    "V_mean": 196
-  },
-  {
-    "image_path": "images/1789549437880_20251017_110652.jpg",
-    "timestamp": "2025-10-17T11:06",
-    "weather_status": "Error",
-    "conditions_desc": "API Error",
-    "label": 1,
-    "env_cloudcover": 0,
-    "env_visibility": 0,
-    "env_humidity": 0,
-    "env_precip": 0,
-    "env_solarradiation": 0,
-    "R_mean": 72.7,
-    "G_mean": 97.99,
-    "B_mean": 131.37,
-    "H_mean": 106,
-    "S_mean": 114,
-    "V_mean": 131
-  },
-  {
-    "image_path": "images/1789549563464_IMG_2335.jpeg",
-    "timestamp": "2026-09-13T18:05",
-    "weather_status": "Error",
-    "conditions_desc": "API Error",
-    "label": 1,
-    "env_cloudcover": 0,
-    "env_visibility": 0,
-    "env_humidity": 0,
-    "env_precip": 0,
-    "env_solarradiation": 0,
-    "R_mean": 182.91,
-    "G_mean": 131.64,
-    "B_mean": 86.24,
-    "H_mean": 14,
-    "S_mean": 135,
-    "V_mean": 183
-  },
-  {
-    "image_path": "images/1789549598682_IMG_3647.jpeg",
-    "timestamp": "2025-11-16T17:06",
-    "weather_status": "Error",
-    "conditions_desc": "API Error",
-    "label": 1,
-    "env_cloudcover": 0,
-    "env_visibility": 0,
-    "env_humidity": 0,
-    "env_precip": 0,
-    "env_solarradiation": 0,
-    "R_mean": 112.89,
-    "G_mean": 119.25,
-    "B_mean": 124.06,
-    "H_mean": 102,
-    "S_mean": 23,
-    "V_mean": 124
-  },
-  {
-    "image_path": "images/1789549467500_IMG_0706.jpeg",
-    "timestamp": "2025-10-02T18:04",
-    "weather_status": "Error",
-    "conditions_desc": "API Error",
-    "label": 1,
-    "env_cloudcover": 0,
-    "env_visibility": 0,
-    "env_humidity": 0,
-    "env_precip": 0,
-    "env_solarradiation": 0,
-    "R_mean": 93.32,
-    "G_mean": 87.01,
-    "B_mean": 98.73,
-    "H_mean": 135,
-    "S_mean": 30,
-    "V_mean": 99
-  },
-  {
-    "image_path": "images/1789549612536_IMG_1153.jpeg",
-    "timestamp": "2026-03-17T18:02",
-    "weather_status": "Error",
-    "conditions_desc": "API Error",
-    "label": 1,
-    "env_cloudcover": 0,
-    "env_visibility": 0,
-    "env_humidity": 0,
-    "env_precip": 0,
-    "env_solarradiation": 0,
-    "R_mean": 128.76,
-    "G_mean": 133.43,
-    "B_mean": 134.22,
-    "H_mean": 94,
-    "S_mean": 10,
-    "V_mean": 134
-  },
-  {
-    "image_path": "images/1789549670910_IMG_9878.jpeg",
-    "timestamp": "2025-08-20T18:07",
-    "weather_status": "Error",
-    "conditions_desc": "API Error",
-    "label": 1,
-    "env_cloudcover": 0,
-    "env_visibility": 0,
-    "env_humidity": 0,
-    "env_precip": 0,
-    "env_solarradiation": 0,
-    "R_mean": 118.55,
-    "G_mean": 132.67,
-    "B_mean": 154.8,
-    "H_mean": 108,
-    "S_mean": 60,
-    "V_mean": 155
-  },
-  {
-    "image_path": "images/1789549694777_IMG_2336.jpeg",
-    "timestamp": "2026-09-14T11:21",
-    "weather_status": "Error",
-    "conditions_desc": "API Error",
-    "label": 1,
-    "env_cloudcover": 0,
-    "env_visibility": 0,
-    "env_humidity": 0,
-    "env_precip": 0,
-    "env_solarradiation": 0,
-    "R_mean": 133.86,
-    "G_mean": 183.45,
-    "B_mean": 251.2,
-    "H_mean": 107,
-    "S_mean": 119,
-    "V_mean": 251
-  },
-  {
-    "image_path": "images/1789549710001_IMG_1196.jpeg",
-    "timestamp": "2026-03-19T18:09",
-    "weather_status": "Error",
-    "conditions_desc": "API Error",
-    "label": 1,
-    "env_cloudcover": 0,
-    "env_visibility": 0,
-    "env_humidity": 0,
-    "env_precip": 0,
-    "env_solarradiation": 0,
-    "R_mean": 151.05,
-    "G_mean": 129.99,
-    "B_mean": 108.23,
-    "H_mean": 15,
-    "S_mean": 72,
-    "V_mean": 151
-  },
-  {
-    "image_path": "images/1789549727673_IMG_0705.jpeg",
-    "timestamp": "2025-10-02T18:08",
-    "weather_status": "Error",
-    "conditions_desc": "API Error",
-    "label": 1,
-    "env_cloudcover": 0,
-    "env_visibility": 0,
-    "env_humidity": 0,
-    "env_precip": 0,
-    "env_solarradiation": 0,
-    "R_mean": 106.93,
-    "G_mean": 68.18,
-    "B_mean": 42.61,
-    "H_mean": 12,
-    "S_mean": 153,
-    "V_mean": 107
-  },
-  {
-    "image_path": "images/1789549782470_IMG_1506.jpeg",
-    "timestamp": "2026-03-30T18:13",
-    "weather_status": "Error",
-    "conditions_desc": "API Error",
-    "label": 1,
-    "env_cloudcover": 0,
-    "env_visibility": 0,
-    "env_humidity": 0,
-    "env_precip": 0,
-    "env_solarradiation": 0,
-    "R_mean": 179.1,
-    "G_mean": 154.47,
-    "B_mean": 119.9,
-    "H_mean": 17,
-    "S_mean": 84,
-    "V_mean": 179
-  },
-  {
-    "image_path": "images/1789549929163_IMG_1506.jpeg",
-    "timestamp": "2026-03-30T18:13",
-    "weather_status": "Error",
-    "conditions_desc": "API Error",
-    "label": 1,
-    "env_cloudcover": 0,
-    "env_visibility": 0,
-    "env_humidity": 0,
-    "env_precip": 0,
-    "env_solarradiation": 0,
-    "R_mean": 179.1,
-    "G_mean": 154.47,
-    "B_mean": 119.9,
-    "H_mean": 17,
-    "S_mean": 84,
-    "V_mean": 179
-  },
-  {
-    "image_path": "images/1789548979791_IMG_7434.jpeg",
-    "timestamp": "2026-07-20T15:46",
-    "weather_status": "Clear",
-    "conditions_desc": "Partially cloudy",
-    "label": 1,
-    "env_cloudcover": 25,
-    "env_visibility": 10,
-    "env_humidity": 46.43,
-    "env_precip": 0,
-    "env_solarradiation": 629,
-    "R_mean": 119.95,
-    "G_mean": 146.83,
-    "B_mean": 175.94,
-    "H_mean": 105,
-    "S_mean": 81,
-    "V_mean": 176
-  },
-  {
-    "image_path": "images/1789548980111_IMG_4262.jpeg",
-    "timestamp": "2026-03-19T18:15",
-    "weather_status": "Clear",
-    "conditions_desc": "Partially cloudy",
-    "label": 1,
-    "env_cloudcover": 25,
-    "env_visibility": 10,
-    "env_humidity": 68.69,
-    "env_precip": 0,
-    "env_solarradiation": 13,
-    "R_mean": 188.07,
-    "G_mean": 167.11,
-    "B_mean": 144.15,
-    "H_mean": 16,
-    "S_mean": 60,
-    "V_mean": 188
-  },
-  {
-    "image_path": "images/1789548980421_IMG_4259.jpeg",
-    "timestamp": "2026-03-19T18:11",
-    "weather_status": "Clear",
-    "conditions_desc": "Partially cloudy",
-    "label": 1,
-    "env_cloudcover": 25,
-    "env_visibility": 10,
-    "env_humidity": 68.69,
-    "env_precip": 0,
-    "env_solarradiation": 13,
-    "R_mean": 196.9,
-    "G_mean": 171.16,
-    "B_mean": 142.26,
-    "H_mean": 16,
-    "S_mean": 71,
-    "V_mean": 197
-  },
-  {
-    "image_path": "images/1789548980808_IMG_3184.jpeg",
-    "timestamp": "2026-03-19T18:11",
-    "weather_status": "Clear",
-    "conditions_desc": "Partially cloudy",
-    "label": 1,
-    "env_cloudcover": 25,
-    "env_visibility": 10,
-    "env_humidity": 68.69,
-    "env_precip": 0,
-    "env_solarradiation": 13,
-    "R_mean": 142.46,
-    "G_mean": 146.08,
-    "B_mean": 157.81,
-    "H_mean": 112,
-    "S_mean": 25,
-    "V_mean": 158
-  },
-  {
-    "image_path": "images/1789548981222_IMG_3182.jpeg",
-    "timestamp": "2026-03-19T18:11",
-    "weather_status": "Clear",
-    "conditions_desc": "Partially cloudy",
-    "label": 1,
-    "env_cloudcover": 25,
-    "env_visibility": 10,
-    "env_humidity": 68.69,
-    "env_precip": 0,
-    "env_solarradiation": 13,
-    "R_mean": 184.25,
-    "G_mean": 145.84,
-    "B_mean": 120.22,
-    "H_mean": 12,
-    "S_mean": 89,
-    "V_mean": 184
-  },
-  {
-    "image_path": "images/1789548981628_IMG_3181.jpeg",
-    "timestamp": "2026-03-19T18:08",
-    "weather_status": "Clear",
-    "conditions_desc": "Partially cloudy",
-    "label": 1,
-    "env_cloudcover": 25,
-    "env_visibility": 10,
-    "env_humidity": 68.69,
-    "env_precip": 0,
-    "env_solarradiation": 13,
-    "R_mean": 128.26,
-    "G_mean": 138.63,
-    "B_mean": 159.11,
-    "H_mean": 109,
-    "S_mean": 49,
-    "V_mean": 159
-  },
-  {
-    "image_path": "images/1789548982037_IMG_3179.jpeg",
-    "timestamp": "2026-03-19T18:08",
-    "weather_status": "Clear",
-    "conditions_desc": "Partially cloudy",
-    "label": 1,
-    "env_cloudcover": 25,
-    "env_visibility": 10,
-    "env_humidity": 68.69,
-    "env_precip": 0,
-    "env_solarradiation": 13,
-    "R_mean": 103.69,
-    "G_mean": 119.96,
-    "B_mean": 152.66,
-    "H_mean": 109,
-    "S_mean": 82,
-    "V_mean": 153
-  },
-  {
-    "image_path": "images/1789548982446_IMG_3178.jpeg",
-    "timestamp": "2026-03-19T18:07",
-    "weather_status": "Clear",
-    "conditions_desc": "Partially cloudy",
-    "label": 1,
-    "env_cloudcover": 25,
-    "env_visibility": 10,
-    "env_humidity": 68.69,
-    "env_precip": 0,
-    "env_solarradiation": 13,
-    "R_mean": 100.88,
-    "G_mean": 121.44,
-    "B_mean": 155.82,
-    "H_mean": 108,
-    "S_mean": 90,
-    "V_mean": 156
-  },
-  {
-    "image_path": "images/1789548982861_IMG_3177.jpeg",
-    "timestamp": "2026-03-19T18:07",
-    "weather_status": "Clear",
-    "conditions_desc": "Partially cloudy",
-    "label": 1,
-    "env_cloudcover": 25,
-    "env_visibility": 10,
-    "env_humidity": 68.69,
-    "env_precip": 0,
-    "env_solarradiation": 13,
-    "R_mean": 107.18,
-    "G_mean": 123.87,
-    "B_mean": 154.64,
-    "H_mean": 109,
-    "S_mean": 78,
-    "V_mean": 155
-  },
-  {
-    "image_path": "images/1789548983272_IMG_3174.jpeg",
-    "timestamp": "2026-03-16T18:07",
-    "weather_status": "Gloomy",
-    "conditions_desc": "Rain, Partially cloudy",
-    "label": 0,
-    "env_cloudcover": 59.5,
-    "env_visibility": 10,
-    "env_humidity": 57.45,
-    "env_precip": 0.3,
-    "env_solarradiation": 23,
-    "R_mean": 124.23,
-    "G_mean": 138.87,
-    "B_mean": 162.56,
-    "H_mean": 108,
-    "S_mean": 60,
-    "V_mean": 163
-  },
-  {
-    "image_path": "images/1789548983678_IMG_3173.jpeg",
-    "timestamp": "2026-09-17T18:16",
-    "weather_status": "Gloomy",
-    "conditions_desc": "Rain, Overcast",
-    "label": 0,
-    "env_cloudcover": 98,
-    "env_visibility": 24.1,
-    "env_humidity": 77.95,
-    "env_precip": 0,
-    "env_solarradiation": 92,
-    "R_mean": 26.33,
-    "G_mean": 41.65,
-    "B_mean": 57.3,
-    "H_mean": 105,
-    "S_mean": 138,
-    "V_mean": 57
-  },
-  {
-    "image_path": "images/1789548984086_IMG_3171.jpeg",
-    "timestamp": "2026-03-17T15:52",
-    "weather_status": "Gloomy",
-    "conditions_desc": "Rain, Partially cloudy",
-    "label": 0,
-    "env_cloudcover": 25,
-    "env_visibility": 10,
-    "env_humidity": 58.47,
-    "env_precip": 0.3,
-    "env_solarradiation": 560,
-    "R_mean": 104.4,
-    "G_mean": 131.2,
-    "B_mean": 160.4,
-    "H_mean": 105,
-    "S_mean": 89,
-    "V_mean": 160
-  },
-  {
-    "image_path": "images/1789548984497_IMG_3122.jpeg",
-    "timestamp": "2026-03-17T18:16",
-    "weather_status": "Clear",
-    "conditions_desc": "Partially cloudy",
-    "label": 1,
-    "env_cloudcover": 25,
-    "env_visibility": 10,
-    "env_humidity": 69.37,
-    "env_precip": 0,
-    "env_solarradiation": 16,
-    "R_mean": 195.58,
-    "G_mean": 176.92,
-    "B_mean": 154.01,
-    "H_mean": 16,
-    "S_mean": 54,
-    "V_mean": 196
-  },
-  {
-    "image_path": "images/1789548984910_IMG_3119.jpeg",
-    "timestamp": "2026-03-17T18:14",
-    "weather_status": "Error",
-    "conditions_desc": "API Error",
-    "label": 1,
-    "env_cloudcover": 0,
-    "env_visibility": 0,
-    "env_humidity": 0,
-    "env_precip": 0,
-    "env_solarradiation": 0,
-    "R_mean": 93.77,
-    "G_mean": 126.19,
-    "B_mean": 161.27,
-    "H_mean": 105,
-    "S_mean": 107,
-    "V_mean": 161
-  },
-  {
-    "image_path": "images/1789548985316_IMG_3117.jpeg",
-    "timestamp": "2026-03-17T18:13",
-    "weather_status": "Error",
-    "conditions_desc": "API Error",
-    "label": 1,
-    "env_cloudcover": 0,
-    "env_visibility": 0,
-    "env_humidity": 0,
-    "env_precip": 0,
-    "env_solarradiation": 0,
-    "R_mean": 101.69,
-    "G_mean": 132.96,
-    "B_mean": 167.99,
-    "H_mean": 105,
-    "S_mean": 101,
-    "V_mean": 168
-  },
-  {
-    "image_path": "images/1789548985724_IMG_3114.jpeg",
-    "timestamp": "2026-03-17T18:10",
-    "weather_status": "Error",
-    "conditions_desc": "API Error",
-    "label": 1,
-    "env_cloudcover": 0,
-    "env_visibility": 0,
-    "env_humidity": 0,
-    "env_precip": 0,
-    "env_solarradiation": 0,
-    "R_mean": 99.21,
-    "G_mean": 128.61,
-    "B_mean": 160.24,
-    "H_mean": 105,
-    "S_mean": 97,
-    "V_mean": 160
-  },
-  {
-    "image_path": "images/1789548986136_IMG_3111.jpeg",
-    "timestamp": "2026-03-17T18:09",
-    "weather_status": "Error",
-    "conditions_desc": "API Error",
-    "label": 1,
-    "env_cloudcover": 0,
-    "env_visibility": 0,
-    "env_humidity": 0,
-    "env_precip": 0,
-    "env_solarradiation": 0,
-    "R_mean": 149.33,
-    "G_mean": 182.85,
-    "B_mean": 213.08,
-    "H_mean": 104,
-    "S_mean": 76,
-    "V_mean": 213
-  },
-  {
-    "image_path": "images/1789548986547_IMG_3109.jpeg",
-    "timestamp": "2026-03-17T18:06",
-    "weather_status": "Error",
-    "conditions_desc": "API Error",
-    "label": 1,
-    "env_cloudcover": 0,
-    "env_visibility": 0,
-    "env_humidity": 0,
-    "env_precip": 0,
-    "env_solarradiation": 0,
-    "R_mean": 154.11,
-    "G_mean": 163.57,
-    "B_mean": 162.21,
-    "H_mean": 85,
-    "S_mean": 15,
-    "V_mean": 164
-  },
-  {
-    "image_path": "images/1789548986952_IMG_3105.jpeg",
-    "timestamp": "2026-03-17T18:02",
-    "weather_status": "Error",
-    "conditions_desc": "API Error",
-    "label": 1,
-    "env_cloudcover": 0,
-    "env_visibility": 0,
-    "env_humidity": 0,
-    "env_precip": 0,
-    "env_solarradiation": 0,
-    "R_mean": 134.31,
-    "G_mean": 146.54,
-    "B_mean": 160.77,
-    "H_mean": 106,
-    "S_mean": 42,
-    "V_mean": 161
-  },
-  {
-    "image_path": "images/1789548987365_IMG_3101.jpeg",
-    "timestamp": "2026-03-17T18:01",
-    "weather_status": "Error",
-    "conditions_desc": "API Error",
-    "label": 1,
-    "env_cloudcover": 0,
-    "env_visibility": 0,
-    "env_humidity": 0,
-    "env_precip": 0,
-    "env_solarradiation": 0,
-    "R_mean": 69.99,
-    "G_mean": 67.55,
-    "B_mean": 64.15,
-    "H_mean": 17,
-    "S_mean": 21,
-    "V_mean": 70
-  },
-  {
-    "image_path": "images/1789550002830_IMG_1507.jpeg",
-    "timestamp": "2026-03-30T18:19",
-    "weather_status": "Error",
-    "conditions_desc": "API Error",
-    "label": 1,
-    "env_cloudcover": 0,
-    "env_visibility": 0,
-    "env_humidity": 0,
-    "env_precip": 0,
-    "env_solarradiation": 0,
-    "R_mean": 197.67,
-    "G_mean": 165.31,
-    "B_mean": 132.06,
-    "H_mean": 15,
-    "S_mean": 85,
-    "V_mean": 198
-  },
-  {
-    "image_path": "images/1789550084959_IMG_1839.jpeg",
-    "timestamp": "2026-04-10T18:32",
-    "weather_status": "Error",
-    "conditions_desc": "API Error",
-    "label": 1,
-    "env_cloudcover": 0,
-    "env_visibility": 0,
-    "env_humidity": 0,
-    "env_precip": 0,
-    "env_solarradiation": 0,
-    "R_mean": 179.76,
-    "G_mean": 174.36,
-    "B_mean": 165.89,
-    "H_mean": 18,
-    "S_mean": 20,
-    "V_mean": 180
-  }
-]
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bangsaen Sky Predictor - พยากรณ์ท้องฟ้าและสภาพอากาศบางแสน</title>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary: #0077b6;
+            --primary-hover: #023e8a;
+            --accent: #00b4d8;
+            --bg-gradient: linear-gradient(135deg, #e0f7fa 0%, #caf0f8 100%);
+            --card-bg: #ffffff;
+            --text-main: #2b2d42;
+            --text-sub: #6c757d;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Prompt', sans-serif; }
+        body { background: var(--bg-gradient); min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; color: var(--text-main); }
+        .container { width: 100%; max-width: 900px; background: var(--card-bg); border-radius: 20px; box-shadow: 0 15px 35px rgba(0, 119, 182, 0.15); overflow: hidden; display: grid; grid-template-columns: 1fr; }
+        @media (min-width: 768px) { .container { grid-template-columns: 350px 1fr; } }
+
+        /* Control Panel (INPUT) */
+        .control-panel { background: #f8f9fa; padding: 30px 25px; border-right: 1px solid #edf2f7; display: flex; flex-direction: column; justify-content: space-between; }
+        .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 25px; color: var(--primary); }
+        .brand i { font-size: 2rem; }
+        .brand h1 { font-size: 1.25rem; font-weight: 700; line-height: 1.2; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-size: 0.9rem; font-weight: 500; margin-bottom: 8px; color: var(--text-sub); }
+        .form-control { width: 100%; padding: 12px 15px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 0.95rem; outline: none; transition: all 0.3s ease; }
+        .form-control:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0, 180, 216, 0.2); }
+        .btn-submit { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; display: flex; justify-content: center; align-items: center; gap: 8px; }
+        .btn-submit:hover { background: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0, 119, 182, 0.3); }
+        .btn-submit:disabled { background: #a0aec0; cursor: not-allowed; }
+
+        /* Output Dashboard (OUTPUT) */
+        .display-panel { padding: 30px; display: flex; flex-direction: column; justify-content: center; }
+        .placeholder-state { text-align: center; color: var(--text-sub); padding: 40px 20px; }
+        .placeholder-state i { font-size: 4rem; color: #cbd5e1; margin-bottom: 15px; }
+        .results-state { display: none; animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .results-header { border-bottom: 2px solid #f1f5f9; padding-bottom: 15px; margin-bottom: 20px; }
+        .results-header h2 { font-size: 1.4rem; color: var(--primary); }
+
+        .output-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .info-card { background: #f8fafc; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; }
+        .info-card .title { font-size: 0.8rem; color: var(--text-sub); margin-bottom: 5px; display: flex; align-items: center; gap: 6px; }
+        .info-card .value { font-size: 1.1rem; font-weight: 600; }
+        .color-indicator { display: flex; align-items: center; gap: 12px; margin-top: 5px; }
+        .color-badge { width: 32px; height: 32px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.2); flex-shrink: 0; }
+
+        .image-preview-container { margin-bottom: 20px; position: relative; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-height: 220px; }
+        .image-preview-container img { width: 100%; height: 220px; object-fit: cover; display: block; }
+        .image-badge { position: absolute; bottom: 10px; right: 10px; background: rgba(0, 0, 0, 0.6); color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; backdrop-filter: blur(4px); }
+        .similarity-badge { position: absolute; top: 10px; right: 10px; background: var(--accent); color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+
+        .recommendation-box { background: #e0f2fe; border-left: 4px solid var(--accent); padding: 15px; border-radius: 0 10px 10px 0; }
+        .recommendation-box h4 { font-size: 0.9rem; color: #0369a1; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+        .recommendation-box p { font-size: 0.95rem; color: #0c4a6e; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="control-panel">
+        <div>
+            <div class="brand">
+                <i class="fa-solid fa-umbrella-beach"></i>
+                <h1>Bangsaen Sky<br>Predictor</h1>
+            </div>
+            <form id="predictForm" onsubmit="handlePredictJS(event)">
+                <div class="form-group">
+                    <label for="datetimeInput"><i class="fa-regular fa-calendar-days"></i> เลือกวันและเวลาที่ต้องการพยากรณ์</label>
+                    <input type="datetime-local" id="datetimeInput" class="form-control" required>
+                </div>
+                <button type="submit" class="btn-submit" id="submitBtn">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> พยากรณ์ท้องฟ้า
+                </button>
+            </form>
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-sub); text-align: center; margin-top: 20px;">
+            เชื่อมต่อข้อมูลสภาพอากาศเรียลไทม์จาก Visual Crossing API
+        </div>
+    </div>
+
+    <div class="display-panel">
+        <div id="placeholderState" class="placeholder-state">
+            <i class="fa-solid fa-cloud-sun"></i>
+            <h3>รอรับผลการพยากรณ์</h3>
+            <p>กรุณาเลือกวันและเวลาจากเมนูด้านซ้าย แล้วกด "พยากรณ์ท้องฟ้า"</p>
+        </div>
+
+        <div id="resultsState" class="results-state">
+            <div class="results-header">
+                <h2><i class="fa-solid fa-square-poll-vertical"></i> ผลการพยากรณ์ (OUTPUT)</h2>
+            </div>
+            <div class="output-grid">
+                <div class="info-card">
+                    <div class="title"><i class="fa-solid fa-cloud-bolt"></i> คาดการณ์สภาพฟ้า</div>
+                    <div class="value" id="resCondition">-</div>
+                    <div style="font-size: 0.75rem; color: var(--text-sub); margin-top: 4px;" id="resEnvDetails"></div>
+                </div>
+                <div class="info-card">
+                    <div class="title"><i class="fa-solid fa-palette"></i> คาดเดาเฉดสี (RGB & HSV)</div>
+                    <div class="color-indicator">
+                        <div class="color-badge" id="resColorBadge"></div>
+                        <div>
+                            <div class="value" id="resRgbText" style="font-size: 0.9rem;">-</div>
+                            <div id="resHsvText" style="font-size: 0.8rem; color: var(--text-sub); font-weight: 500;">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="image-preview-container">
+                <div class="similarity-badge" id="resSimilarity"><i class="fa-solid fa-check-double"></i> ความแม่นยำ: -%</div>
+                <img id="resSkyImage" src="" alt="ภาพจำลองท้องฟ้า">
+                <div class="image-badge"><i class="fa-solid fa-images"></i> ภาพถ่ายใกล้เคียงจากคลัง</div>
+            </div>
+
+            <div class="recommendation-box">
+                <h4><i class="fa-solid fa-compass"></i> คำแนะนำในการทำกิจกรรม</h4>
+                <p id="resRecommendation">-</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let IMAGE_DATABASE = [];
+    const API_KEY = "XK3URSVCSGXCGR8N9FJR69Z4Q";
+    const LOCATION = "Bangsaen,Thailand";
+
+    window.onload = async function() {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        document.getElementById('datetimeInput').value = now.toISOString().slice(0, 16);
+
+        try {
+            const response = await fetch('./model_db.json');
+            if (!response.ok) throw new Error('ไม่สามารถโหลด model_db.json ได้');
+            IMAGE_DATABASE = await response.json();
+            console.log('โหลดฐานข้อมูลสำเร็จ:', IMAGE_DATABASE);
+        } catch (error) {
+            console.error('Error loading database:', error);
+        }
+    };
+
+    // 1. ดึงค่าสภาพอากาศแบบเรียลไทม์จาก Visual Crossing API
+    async function fetchRealtimeWeather(datetimeStr) {
+        const url = `https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/${encodeURIComponent(LOCATION)}/${datetimeStr}?unitGroup=metric&key=${API_KEY}&contentType=json`;
+        
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`API Request Error: ${response.statusText}`);
+        }
+        const data = await response.json();
+
+        const selectedDate = new Date(datetimeStr);
+        const hour = selectedDate.getHours();
+        const hourData = (data.days && data.days[0] && data.days[0].hours && data.days[0].hours[hour])
+            ? data.days[0].hours[hour]
+            : (data.days ? data.days[0] : data);
+
+        return {
+            temp: hourData.temp || 30,
+            cloudcover: hourData.cloudcover || 0,
+            humidity: hourData.humidity || 0,
+            visibility: hourData.visibility || 10,
+            solarradiation: hourData.solarradiation || 0,
+            conditions: hourData.conditions || "Clear"
+        };
+    }
+
+    // 2. เปรียบเทียบค่าสภาพอากาศเรียลไทม์กับฐานข้อมูลด้วย KNN Distance
+    function findNearestNeighborInDB(apiWeather) {
+        if (!IMAGE_DATABASE || IMAGE_DATABASE.length === 0) return null;
+
+        let bestMatch = null;
+        let minDistance = Infinity;
+
+        IMAGE_DATABASE.forEach(item => {
+            if (item.weather_status === "Error") return;
+
+            const dCloud = ((apiWeather.cloudcover - item.env_cloudcover) / 100);
+            const dHum = ((apiWeather.humidity - item.env_humidity) / 100);
+            const dVis = (((apiWeather.visibility || 10) - (item.env_visibility || 10)) / 10);
+            const dSolar = (((apiWeather.solarradiation || 0) - (item.env_solarradiation || 0)) / 1000);
+
+            const distance = Math.sqrt(
+                Math.pow(dCloud, 2) + 
+                Math.pow(dHum, 2) + 
+                Math.pow(dVis, 2) + 
+                Math.pow(dSolar, 2)
+            );
+
+            if (distance < minDistance) {
+                minDistance = distance;
+                bestMatch = item;
+            }
+        });
+
+        return bestMatch || IMAGE_DATABASE[0];
+    }
+
+    // คำนวณเปอร์เซ็นต์ความคล้ายคลึงของค่าสี RGB
+    function calculateRgbSimilarity(rgb1, rgb2) {
+        const distance = Math.sqrt(
+            Math.pow(rgb1[0] - rgb2[0], 2) +
+            Math.pow(rgb1[1] - rgb2[1], 2) +
+            Math.pow(rgb1[2] - rgb2[2], 2)
+        );
+        const maxDistance = 441.67; 
+        const similarity = ((1 - (distance / maxDistance)) * 100).toFixed(2);
+        return parseFloat(similarity);
+    }
+
+    // 3. ดึงภาพที่ใกล้เคียงกับข้อมูลที่คาดเดาได้มากที่สุดอย่างน้อย 80%
+    function retrieveBestMatchImage(targetRgb) {
+        let candidates = [];
+
+        IMAGE_DATABASE.forEach(item => {
+            const dbRgb = [item.R_mean || 0, item.G_mean || 0, item.B_mean || 0];
+            const similarity = calculateRgbSimilarity(targetRgb, dbRgb);
+            candidates.push({
+                image_path: item.image_path,
+                similarity: similarity
+            });
+        });
+
+        candidates.sort((a, b) => b.similarity - a.similarity);
+
+        const matched = candidates.find(c => c.similarity >= 80);
+        return matched ? matched : candidates[0];
+    }
+
+    // ประมวลผลหลักเมื่อกดปุ่ม
+    async function handlePredictJS(e) {
+        e.preventDefault();
+
+        const submitBtn = document.getElementById('submitBtn');
+        const rawDatetime = document.getElementById('datetimeInput').value;
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังเชื่อมต่อ API...';
+
+        try {
+            // 1. ดึงข้อมูลสภาพอากาศเรียลไทม์ผ่าน API
+            const apiWeather = await fetchRealtimeWeather(rawDatetime);
+
+            // 2. เปรียบเทียบข้อมูลสภาพอากาศกับฐานข้อมูลผ่าน ML
+            const matchedDbRecord = findNearestNeighborInDB(apiWeather);
+
+            // 3. คาดเดาสภาพฟ้าโปร่ง / ฟ้าหม่น และค่าสี RGB/HSV
+            const isClear = apiWeather.cloudcover < 50 && !apiWeather.conditions.toLowerCase().includes("rain");
+            const skyConditionText = isClear ? "ฟ้าโปร่ง (ท้องฟ้าแจ่มใส)" : "ฟ้าหม่น (มีเมฆมาก/มืดครึ้ม)";
+
+            const predictedRgb = [
+                matchedDbRecord.R_mean || 150,
+                matchedDbRecord.G_mean || 150,
+                matchedDbRecord.B_mean || 180
+            ];
+
+            const predictedHsv = [
+                matchedDbRecord.H_mean || 0,
+                matchedDbRecord.S_mean || 0,
+                matchedDbRecord.V_mean || 0
+            ];
+
+            // 4. ดึงภาพถ่ายตัวอย่างที่มีความคล้ายคลึง >= 80%
+            const imageResult = retrieveBestMatchImage(predictedRgb);
+
+            // แสดงผลลัพธ์บน UI
+            document.getElementById('resCondition').innerText = skyConditionText;
+            document.getElementById('resEnvDetails').innerText = 
+                `อุณหภูมิ: ${apiWeather.temp}°C | เมฆ: ${apiWeather.cloudcover}% | ความชื้น: ${apiWeather.humidity}%`;
+
+            const roundedRgb = predictedRgb.map(v => Math.round(v));
+            const roundedHsv = predictedHsv.map(v => Math.round(v));
+
+            document.getElementById('resRgbText').innerText = `RGB(${roundedRgb.join(', ')})`;
+            document.getElementById('resHsvText').innerText = `HSV(${roundedHsv[0]}°, ${roundedHsv[1]}, ${roundedHsv[2]})`;
+            document.getElementById('resColorBadge').style.backgroundColor = `rgb(${roundedRgb.join(',')})`;
+
+            const skyImgElement = document.getElementById('resSkyImage');
+            skyImgElement.src = imageResult.image_path;
+            skyImgElement.onerror = function() {
+                this.src = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80';
+            };
+
+            const similarityEl = document.getElementById('resSimilarity');
+            similarityEl.innerHTML = `<i class="fa-solid fa-check-double"></i> คล้ายกัน: ${imageResult.similarity}%`;
+            similarityEl.style.backgroundColor = imageResult.similarity >= 80 ? "#10b981" : "#f59e0b";
+
+            let rec = isClear 
+                ? "สภาพอากาศดีมาก เหมาะแก่การทำกิจกรรม outdoor เล่นน้ำทะเล และชมทัศนียภาพริมหาดบางแสน"
+                : "ท้องฟ้าครึ้มหรือมีเมฆมาก แนะนำให้เลือกพักผ่อนในร้านอาหาร คาเฟ่ริมหาด หรือพกร่มติดตัว";
+            document.getElementById('resRecommendation').innerText = rec;
+
+            document.getElementById('placeholderState').style.display = 'none';
+            document.getElementById('resultsState').style.display = 'block';
+
+        } catch (error) {
+            console.error(error);
+            alert("เกิดข้อผิดพลาดในการดึงข้อมูลสภาพอากาศเรียลไทม์ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต");
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> พยากรณ์ท้องฟ้า';
+        }
+    }
+</script>
+
+</body>
+</html>
