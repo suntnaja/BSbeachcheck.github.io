@@ -49,8 +49,8 @@
         .info-card { background: #f8fafc; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; }
         .info-card .title { font-size: 0.8rem; color: var(--text-sub); margin-bottom: 5px; display: flex; align-items: center; gap: 6px; }
         .info-card .value { font-size: 1.1rem; font-weight: 600; }
-        .color-indicator { display: flex; align-items: center; gap: 10px; margin-top: 5px; }
-        .color-badge { width: 28px; height: 28px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        .color-indicator { display: flex; align-items: center; gap: 12px; margin-top: 5px; }
+        .color-badge { width: 32px; height: 32px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.2); flex-shrink: 0; }
 
         .image-preview-container { margin-bottom: 20px; position: relative; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-height: 220px; }
         .image-preview-container img { width: 100%; height: 220px; object-fit: cover; display: block; }
@@ -104,10 +104,13 @@
                     <div style="font-size: 0.75rem; color: var(--text-sub); margin-top: 4px;" id="resEnvDetails"></div>
                 </div>
                 <div class="info-card">
-                    <div class="title"><i class="fa-solid fa-palette"></i> คาดเดาเฉดสี (RGB)</div>
+                    <div class="title"><i class="fa-solid fa-palette"></i> คาดเดาเฉดสี (RGB & HSV)</div>
                     <div class="color-indicator">
                         <div class="color-badge" id="resColorBadge"></div>
-                        <div class="value" id="resRgbText" style="font-size: 0.95rem;">-</div>
+                        <div>
+                            <div class="value" id="resRgbText" style="font-size: 0.9rem;">-</div>
+                            <div id="resHsvText" style="font-size: 0.8rem; color: var(--text-sub); font-weight: 500;">-</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -156,7 +159,6 @@
         }
         const data = await response.json();
 
-        // ดึงข้อมูลชั่วโมงที่ระบุ
         const selectedDate = new Date(datetimeStr);
         const hour = selectedDate.getHours();
         const hourData = (data.days && data.days[0] && data.days[0].hours && data.days[0].hours[hour])
@@ -183,7 +185,6 @@
         IMAGE_DATABASE.forEach(item => {
             if (item.weather_status === "Error") return;
 
-            // Normalize feature differences
             const dCloud = ((apiWeather.cloudcover - item.env_cloudcover) / 100);
             const dHum = ((apiWeather.humidity - item.env_humidity) / 100);
             const dVis = (((apiWeather.visibility || 10) - (item.env_visibility || 10)) / 10);
@@ -232,7 +233,6 @@
 
         candidates.sort((a, b) => b.similarity - a.similarity);
 
-        // ดึงภาพแรกที่ความคล้าย >= 80%
         const matched = candidates.find(c => c.similarity >= 80);
         return matched ? matched : candidates[0];
     }
@@ -254,7 +254,7 @@
             // 2. เปรียบเทียบข้อมูลสภาพอากาศกับฐานข้อมูลผ่าน ML
             const matchedDbRecord = findNearestNeighborInDB(apiWeather);
 
-            // 3. คาดเดาสภาพฟ้าโปร่ง / ฟ้าหม่น และค่าสีที่จะเกิดขึ้น
+            // 3. คาดเดาสภาพฟ้าโปร่ง / ฟ้าหม่น และค่าสี RGB/HSV
             const isClear = apiWeather.cloudcover < 50 && !apiWeather.conditions.toLowerCase().includes("rain");
             const skyConditionText = isClear ? "ฟ้าโปร่ง (ท้องฟ้าแจ่มใส)" : "ฟ้าหม่น (มีเมฆมาก/มืดครึ้ม)";
 
@@ -262,6 +262,12 @@
                 matchedDbRecord.R_mean || 150,
                 matchedDbRecord.G_mean || 150,
                 matchedDbRecord.B_mean || 180
+            ];
+
+            const predictedHsv = [
+                matchedDbRecord.H_mean || 0,
+                matchedDbRecord.S_mean || 0,
+                matchedDbRecord.V_mean || 0
             ];
 
             // 4. ดึงภาพถ่ายตัวอย่างที่มีความคล้ายคลึง >= 80%
@@ -273,7 +279,10 @@
                 `อุณหภูมิ: ${apiWeather.temp}°C | เมฆ: ${apiWeather.cloudcover}% | ความชื้น: ${apiWeather.humidity}%`;
 
             const roundedRgb = predictedRgb.map(v => Math.round(v));
+            const roundedHsv = predictedHsv.map(v => Math.round(v));
+
             document.getElementById('resRgbText').innerText = `RGB(${roundedRgb.join(', ')})`;
+            document.getElementById('resHsvText').innerText = `HSV(${roundedHsv[0]}°, ${roundedHsv[1]}, ${roundedHsv[2]})`;
             document.getElementById('resColorBadge').style.backgroundColor = `rgb(${roundedRgb.join(',')})`;
 
             const skyImgElement = document.getElementById('resSkyImage');
