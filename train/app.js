@@ -238,10 +238,22 @@ document.addEventListener("DOMContentLoaded", () => {
         if (files.length > 0) {
             section.style.display = 'block';
             Array.from(files).forEach((file, index) => {
+                
+                // สร้าง URL ชั่วคราวสำหรับแสดงรูปภาพตัวอย่าง
+                const previewUrl = URL.createObjectURL(file);
+                
                 container.innerHTML += `
-                <div class="d-flex align-items-center justify-content-between mb-2 p-3 border rounded bg-white shadow-sm">
-                    <span class="fw-bold text-truncate me-2" style="max-width: 50%;">${file.name}</span>
-                    <input type="datetime-local" class="form-control datetime-input" data-index="${index}" style="max-width: 45%;" required>
+                <div class="d-flex align-items-center justify-content-between mb-3 p-3 border rounded bg-white shadow-sm">
+                    
+                    <!-- ส่วนแสดงรูปภาพตัวอย่างและชื่อไฟล์ -->
+                    <div class="d-flex align-items-center" style="max-width: 55%; overflow: hidden;">
+                        <img src="${previewUrl}" class="rounded me-3 border" style="width: 70px; height: 70px; object-fit: cover;" alt="preview">
+                        <span class="fw-bold text-truncate" title="${file.name}">${file.name}</span>
+                    </div>
+                    
+                    <!-- ส่วนกรอกวันและเวลา -->
+                    <input type="datetime-local" class="form-control datetime-input" data-index="${index}" style="max-width: 40%;" required>
+                    
                 </div>`;
             });
         } else { 
