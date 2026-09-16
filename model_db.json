@@ -1,0 +1,21 @@
+[
+  {
+    "image_path": "images/1789595334992_4513f747-0b13-4aac-8ede-d9dfb046beb0.jpg",
+    "timestamp": "2026-04-20T18:15",
+    "weather_status": "Clear",
+    "conditions_desc": "Partially cloudy",
+    "label": 1,
+    "env_temp": 31.9,
+    "env_humidity": 65.29,
+    "env_precip": 0,
+    "env_cloudcover": 25,
+    "env_visibility": 9.5,
+    "env_solarradiation": 19,
+    "R_mean": 157.27,
+    "G_mean": 123.65,
+    "B_mean": 110.16,
+    "H_mean": 9,
+    "S_mean": 76,
+    "V_mean": 157
+  }
+]
