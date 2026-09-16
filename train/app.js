@@ -28,7 +28,7 @@ async function fetchHistoricalWeather(datetimeStr) {
         const hour = dateObj.getHours();
 
         // 🌟 1. ใช้ CORS Proxy เพื่อเป็นสื่อกลางทะลุการบล็อกของเบราว์เซอร์
-        const proxy = "[https://thingproxy.freeboard.io/fetch/](https://thingproxy.freeboard.io/fetch/)";
+        const proxy = "https://thingproxy.freeboard.io/fetch/";
 
         // URL ต้นฉบับ
         const rawHourlyUrl = `https://data.tmd.go.th/nwpapi/v1/forecast/location/hourly/at?lat=${LAT}&lon=${LON}&fields=tc,rh,rain,cloudlow,cloudmed,cloudhigh,cond&date=${dateStr}&hour=${hour}&duration=1`;
