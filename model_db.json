@@ -1,0 +1,20 @@
+[
+  {
+    "image_path": "images/1789546887762_6205550f545aa1cd5206db4a595b812d.jpg",
+    "timestamp": "2026-09-16T15:21",
+    "weather_status": "Gloomy",
+    "conditions_desc": "Rain, Partially cloudy",
+    "label": 0,
+    "env_cloudcover": 76,
+    "env_visibility": 24.1,
+    "env_humidity": 72.31,
+    "env_precip": 0,
+    "env_solarradiation": 699,
+    "R_mean": 139.61,
+    "G_mean": 138.73,
+    "B_mean": 202.11,
+    "H_mean": 120,
+    "S_mean": 80,
+    "V_mean": 202
+  }
+]
