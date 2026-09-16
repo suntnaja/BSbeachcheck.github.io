@@ -142,5 +142,23 @@
     "H_mean": 105,
     "S_mean": 67,
     "V_mean": 210
+  },
+  {
+    "image_path": "images/1789549245378_20251017_110652.jpg",
+    "timestamp": "2025-10-17T11:06",
+    "weather_status": "Error",
+    "conditions_desc": "API Error",
+    "label": 1,
+    "env_cloudcover": 0,
+    "env_visibility": 0,
+    "env_humidity": 0,
+    "env_precip": 0,
+    "env_solarradiation": 0,
+    "R_mean": 73.96,
+    "G_mean": 99.19,
+    "B_mean": 132.59,
+    "H_mean": 106,
+    "S_mean": 113,
+    "V_mean": 133
   }
 ]
