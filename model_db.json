@@ -52,5 +52,23 @@
     "H_mean": 150,
     "S_mean": 11,
     "V_mean": 132
+  },
+  {
+    "image_path": "images/1789548458825_IMG_6968.jpeg",
+    "timestamp": "2025-10-17T11:02",
+    "weather_status": "Clear",
+    "conditions_desc": "Partially cloudy",
+    "label": 1,
+    "env_cloudcover": 25,
+    "env_visibility": 10,
+    "env_humidity": 68.69,
+    "env_precip": 0,
+    "env_solarradiation": 684,
+    "R_mean": 103.77,
+    "G_mean": 160.43,
+    "B_mean": 220.14,
+    "H_mean": 105,
+    "S_mean": 135,
+    "V_mean": 220
   }
 ]
