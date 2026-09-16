@@ -9,6 +9,9 @@
         body { background-color: #f0f4f8; padding-top: 40px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         .card { border-radius: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); border: none; }
         #loading { display: none; }
+        /* เพิ่ม CSS สำหรับแสดงผลตารางและรูปภาพ */
+        .thumbnail-img { width: 80px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd; }
+        .table-responsive { max-height: 400px; overflow-y: auto; }
     </style>
 </head>
 <body>
@@ -64,8 +67,27 @@
                     <p class="mt-2 fw-bold text-primary" id="loadingText">กำลังประมวลผล...</p>
                 </div>
 
-                <!-- ผลลัพธ์และปุ่ม Action -->
+                <!-- ผลลัพธ์และปุ่ม Action (เพิ่มตารางแสดงผลในส่วนนี้) -->
                 <div id="resultSection" class="mt-4" style="display: none;">
+                    <hr>
+                    <h4 class="text-primary mb-3">📊 ผลการวิเคราะห์ข้อมูล</h4>
+                    
+                    <div class="table-responsive mb-4">
+                        <table class="table table-hover align-middle text-center border">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>ภาพต้นฉบับ</th>
+                                    <th>วันเวลา & สภาพอากาศ</th>
+                                    <th>ค่าสีที่สกัดได้ (R, G, B)</th>
+                                    <th>กลุ่มสภาพอากาศ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resultTableBody">
+                                <!-- ข้อมูลจำลองจะถูกสร้างลงที่นี่ผ่าน JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+
                     <div class="alert alert-success">
                         <h5 id="accText" class="mb-1 fw-bold text-center"></h5>
                     </div>
