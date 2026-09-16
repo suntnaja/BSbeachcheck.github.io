@@ -349,45 +349,42 @@
 </div>
 
 <script>
-    // Mock Database: คลังภาพถ่ายท้องฟ้าจริง (Image Retrieval Database)
-    const IMAGE_DATABASE = [
-        {
-            id: 1,
-            sky_label: "clear_sky",
-            avg_rgb: [130, 200, 230],
-            image_url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80"
-        },
-        {
-            id: 2,
-            sky_label: "sunset",
-            avg_rgb: [240, 120, 70],
-            image_url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80"
-        },
-        {
-            id: 3,
-            sky_label: "night",
-            avg_rgb: [30, 40, 60],
-            image_url: "https://images.unsplash.com/photo-1509114397022-ed747cca3f65?auto=format&fit=crop&w=800&q=80"
-        }
-    ];
+    // ตัวแปรสำหรับเก็บข้อมูลที่ดึงมาจาก model_db.json
+    let IMAGE_DATABASE = [];
 
-    // ตั้งค่าเวลาปัจจุบันลงใน Input ช่อง datetime-local อัตโนมัติเมื่อเปิดหน้าเว็บ
-    window.onload = function() {
+    // โหลดข้อมูลจาก model_db.json ทันทีที่โหลดหน้าเว็บ
+    window.onload = async function() {
+        // ตั้งค่าเวลาปัจจุบันลงใน Input ช่อง datetime-local
         const now = new Date();
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
         document.getElementById('datetimeInput').value = now.toISOString().slice(0, 16);
+
+        // ดึงไฟล์ model_db.json จาก Repository
+        try {
+            const response = await fetch('./model_db.json');
+            if (!response.ok) throw new Error('ไม่สามารถโหลด model_db.json ได้');
+            IMAGE_DATABASE = await response.json();
+            console.log('โหลดฐานข้อมูลสำเร็จ:', IMAGE_DATABASE);
+        } catch (error) {
+            console.error('Error loading database:', error);
+        }
     };
 
     // --- STEP 1: FETCH (Weather Forecast Logic) ---
     function fetchWeatherForecast(dateObj) {
-        return { temperature_c: 31.5, humidity: 65, condition: "Sunny" };
+        // ดึง weather_status จาก Record ใน JSON หากไม่มีให้ใช้ "Clear" เป็นค่าตั้งต้น
+        const status = (IMAGE_DATABASE.length > 0 && IMAGE_DATABASE[0].weather_status) 
+            ? IMAGE_DATABASE[0].weather_status 
+            : "Clear";
+            
+        return { temperature_c: 31.5, humidity: 65, condition: status };
     }
 
     // --- STEP 2: PREDICT (Predict Sky Color Logic) ---
     function predictSkyColor(dateObj) {
         const hour = dateObj.getHours();
         if (hour >= 6 && hour < 16) {
-            return [130, 200, 230]; // ฟ้าสดใส
+            return [127, 172, 226]; // ค่าเฉลี่ยสีฟ้าสดใส (อ้างอิง R_mean, G_mean, B_mean จาก DB)
         } else if (hour >= 16 && hour <= 18) {
             return [240, 120, 70];  // ช่วงพระอาทิตย์ตก
         } else {
@@ -395,32 +392,45 @@
         }
     }
 
-    // --- STEP 3: RETRIEVE (Image Retrieval Euclidean Distance) ---
+    // --- STEP 3: RETRIEVE (Image Retrieval Euclidean Distance จาก model_db.json) ---
     function retrieveMatchingImage(predictedRgb) {
-        let bestMatch = null;
+        if (!IMAGE_DATABASE || IMAGE_DATABASE.length === 0) {
+            return "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80";
+        }
+
+        let bestMatchImg = IMAGE_DATABASE[0].image_path;
         let minDistance = Infinity;
 
-        IMAGE_DATABASE.forEach(img => {
+        IMAGE_DATABASE.forEach(item => {
+            // ดึงค่า R_mean, G_mean, B_mean จาก model_db.json
+            const dbRgb = [
+                item.R_mean || 0, 
+                item.G_mean || 0, 
+                item.B_mean || 0
+            ];
+            
             // คำนวณระยะห่างทางคณิตศาสตร์ (Euclidean Distance)
             const dist = Math.sqrt(
-                Math.pow(predictedRgb[0] - img.avg_rgb[0], 2) +
-                Math.pow(predictedRgb[1] - img.avg_rgb[1], 2) +
-                Math.pow(predictedRgb[2] - img.avg_rgb[2], 2)
+                Math.pow(predictedRgb[0] - dbRgb[0], 2) +
+                Math.pow(predictedRgb[1] - dbRgb[1], 2) +
+                Math.pow(predictedRgb[2] - dbRgb[2], 2)
             );
+
             if (dist < minDistance) {
                 minDistance = dist;
-                bestMatch = img.image_url;
+                bestMatchImg = item.image_path;
             }
         });
 
-        return bestMatch;
+        return bestMatchImg;
     }
 
     // --- STEP 4: RECOMMENDATION LOGIC ---
     function generateActivityRecommendation(weather, rgb) {
-        if (weather.condition === "Sunny" && rgb[0] > 200) {
-            return "เหมาะแก่การเดินเล่นชมพระอาทิตย์ตกดิน และถ่ายรูปริมหาดบางแสน";
-        } else if (weather.condition === "Sunny" && rgb[2] > 200) {
+        if (weather.condition === "Clear" || weather.condition === "Sunny") {
+            if (rgb[0] > 200) {
+                return "เหมาะแก่การเดินเล่นชมพระอาทิตย์ตกดิน และถ่ายรูปริมหาดบางแสน";
+            }
             return "เหมาะแก่การเล่นน้ำทะเล พักผ่อนใต้ร่มเตียงผ้าใบ หรือเล่นบานาน่าโบ๊ท";
         } else {
             return "แนะนำนั่งพักผ่อนในคาเฟ่ริมหาด ชมบรรยากาศยามค่ำคืน";
@@ -440,7 +450,7 @@
         // 2. Predict Model Inference
         const predictedRgb = predictSkyColor(selectedDate);
 
-        // 3. Image Retrieval
+        // 3. Image Retrieval (ดึงจาก model_db.json)
         const retrievedImageUrl = retrieveMatchingImage(predictedRgb);
 
         // 4. Activity Recommendation
@@ -451,13 +461,18 @@
         document.getElementById('resWeather').innerText = `${weatherInfo.condition}, ${weatherInfo.temperature_c} °C`;
 
         // 2. ค่าสีท้องฟ้า
-        const rgbStr = `rgb(${predictedRgb.join(',')})`;
-        document.getElementById('resRgbText').innerText = `RGB(${predictedRgb.join(', ')})`;
+        const roundedRgb = predictedRgb.map(v => Math.round(v));
+        const rgbStr = `rgb(${roundedRgb.join(',')})`;
+        document.getElementById('resRgbText').innerText = `RGB(${roundedRgb.join(', ')})`;
         document.getElementById('resColorBadge').style.backgroundColor = rgbStr;
 
         // 3. ภาพท้องฟ้าที่ดึงจากคลัง
         const skyImgElement = document.getElementById('resSkyImage');
         skyImgElement.src = retrievedImageUrl;
+        skyImgElement.onerror = function() {
+            // สำรองกรณีภาพในโฟลเดอร์ images/ หาไม่พบ
+            this.src = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80';
+        };
 
         // 4. คำแนะนำกิจกรรม
         document.getElementById('resRecommendation').innerText = recommendation;
