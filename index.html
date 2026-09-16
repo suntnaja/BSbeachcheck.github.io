@@ -349,17 +349,14 @@
 </div>
 
 <script>
-    // ตัวแปรสำหรับเก็บข้อมูลที่ดึงมาจาก model_db.json
     let IMAGE_DATABASE = [];
 
-    // โหลดข้อมูลจาก model_db.json ทันทีที่โหลดหน้าเว็บ
+    // โหลดข้อมูลจาก model_db.json ทันทีที่เปิดหน้าเว็บ
     window.onload = async function() {
-        // ตั้งค่าเวลาปัจจุบันลงใน Input ช่อง datetime-local
         const now = new Date();
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
         document.getElementById('datetimeInput').value = now.toISOString().slice(0, 16);
 
-        // ดึงไฟล์ model_db.json จาก Repository
         try {
             const response = await fetch('./model_db.json');
             if (!response.ok) throw new Error('ไม่สามารถโหลด model_db.json ได้');
@@ -370,114 +367,93 @@
         }
     };
 
-    // --- STEP 1: FETCH (Weather Forecast Logic) ---
-    function fetchWeatherForecast(dateObj) {
-        // ดึง weather_status จาก Record ใน JSON หากไม่มีให้ใช้ "Clear" เป็นค่าตั้งต้น
-        const status = (IMAGE_DATABASE.length > 0 && IMAGE_DATABASE[0].weather_status) 
-            ? IMAGE_DATABASE[0].weather_status 
-            : "Clear";
-            
-        return { temperature_c: 31.5, humidity: 65, condition: status };
-    }
+    // ค้นหา Record ที่เวลาใกล้เคียงกับที่เลือกมากที่สุด
+    function findClosestRecordByTime(selectedDate) {
+        if (!IMAGE_DATABASE || IMAGE_DATABASE.length === 0) return null;
 
-    // --- STEP 2: PREDICT (Predict Sky Color Logic) ---
-    function predictSkyColor(dateObj) {
-        const hour = dateObj.getHours();
-        if (hour >= 6 && hour < 16) {
-            return [127, 172, 226]; // ค่าเฉลี่ยสีฟ้าสดใส (อ้างอิง R_mean, G_mean, B_mean จาก DB)
-        } else if (hour >= 16 && hour <= 18) {
-            return [240, 120, 70];  // ช่วงพระอาทิตย์ตก
-        } else {
-            return [30, 40, 60];    // กลางคืน/มืด
-        }
-    }
-
-    // --- STEP 3: RETRIEVE (Image Retrieval Euclidean Distance จาก model_db.json) ---
-    function retrieveMatchingImage(predictedRgb) {
-        if (!IMAGE_DATABASE || IMAGE_DATABASE.length === 0) {
-            return "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80";
-        }
-
-        let bestMatchImg = IMAGE_DATABASE[0].image_path;
-        let minDistance = Infinity;
+        let closestRecord = IMAGE_DATABASE[0];
+        let minDiff = Infinity;
+        const selectedTime = selectedDate.getTime();
 
         IMAGE_DATABASE.forEach(item => {
-            // ดึงค่า R_mean, G_mean, B_mean จาก model_db.json
-            const dbRgb = [
-                item.R_mean || 0, 
-                item.G_mean || 0, 
-                item.B_mean || 0
-            ];
-            
-            // คำนวณระยะห่างทางคณิตศาสตร์ (Euclidean Distance)
-            const dist = Math.sqrt(
-                Math.pow(predictedRgb[0] - dbRgb[0], 2) +
-                Math.pow(predictedRgb[1] - dbRgb[1], 2) +
-                Math.pow(predictedRgb[2] - dbRgb[2], 2)
-            );
+            if (item.timestamp) {
+                const recordTime = new Date(item.timestamp).getTime();
+                const diff = Math.abs(selectedTime - recordTime);
 
-            if (dist < minDistance) {
-                minDistance = dist;
-                bestMatchImg = item.image_path;
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closestRecord = item;
+                }
             }
         });
 
-        return bestMatchImg;
+        return closestRecord;
     }
 
-    // --- STEP 4: RECOMMENDATION LOGIC ---
-    function generateActivityRecommendation(weather, rgb) {
-        if (weather.condition === "Clear" || weather.condition === "Sunny") {
+    // ฟังก์ชันคำนวณคำแนะนำตามสภาพอากาศ
+    function getRecommendation(condition, rgb) {
+        if (condition === "Clear" || condition === "Sunny") {
             if (rgb[0] > 200) {
-                return "เหมาะแก่การเดินเล่นชมพระอาทิตย์ตกดิน และถ่ายรูปริมหาดบางแสน";
+                return "ท้องฟ้าแจ่มใสยามเย็น เหมาะแก่การเดินเล่นชมพระอาทิตย์ตกดิน และถ่ายรูปริมหาดบางแสน";
             }
-            return "เหมาะแก่การเล่นน้ำทะเล พักผ่อนใต้ร่มเตียงผ้าใบ หรือเล่นบานาน่าโบ๊ท";
+            return "สภาพอากาศแจ่มใส เหมาะแก่การเล่นน้ำทะเล พักผ่อนใต้ร่มเตียงผ้าใบ หรือเล่นบานาน่าโบ๊ท";
+        } else if (condition === "Gloomy" || condition === "Cloudy") {
+            return "ท้องฟ้ามืดครึ้ม/มีเมฆมาก แนะนำนั่งพักผ่อนในคาเฟ่ริมหาด ชมบรรยากาศชิลๆ";
+        } else if (condition === "Rain" || condition === "Rainy") {
+            return "ฝนตก หลีกเลี่ยงกิจกรรมชายหาดกลางแจ้ง และเตรียมร่มหรือเสื้อกันฝน";
         } else {
-            return "แนะนำนั่งพักผ่อนในคาเฟ่ริมหาด ชมบรรยากาศยามค่ำคืน";
+            return "แนะนำพักผ่อนบริเวณชายหาด และตรวจสอบสภาพอากาศเป็นระยะ";
         }
     }
 
-    // --- MAIN PIPELINE (ทำงานทันทีในเบราว์เซอร์) ---
+    // ประมวลผลเมื่อกดปุ่มพยากรณ์
     function handlePredictJS(e) {
         e.preventDefault();
 
         const rawDatetime = document.getElementById('datetimeInput').value;
         const selectedDate = new Date(rawDatetime);
 
-        // 1. Fetch
-        const weatherInfo = fetchWeatherForecast(selectedDate);
+        // 1. ค้นหา Record ที่ใกล้เคียงที่สุดจาก timestamp
+        const matchedRecord = findClosestRecordByTime(selectedDate);
 
-        // 2. Predict Model Inference
-        const predictedRgb = predictSkyColor(selectedDate);
+        if (!matchedRecord) {
+            alert("ไม่พบข้อมูลในฐานข้อมูล model_db.json");
+            return;
+        }
 
-        // 3. Image Retrieval (ดึงจาก model_db.json)
-        const retrievedImageUrl = retrieveMatchingImage(predictedRgb);
+        // 2. ดึงข้อมูลจาก Record นั้น
+        const weatherCondition = matchedRecord.weather_status || "Clear";
+        const rgbValues = [
+            matchedRecord.R_mean || 0,
+            matchedRecord.G_mean || 0,
+            matchedRecord.B_mean || 0
+        ];
+        const imageUrl = matchedRecord.image_path || "";
 
-        // 4. Activity Recommendation
-        const recommendation = generateActivityRecommendation(weatherInfo, predictedRgb);
+        // 3. สร้างคำแนะนำกิจกรรม
+        const recommendation = getRecommendation(weatherCondition, rgbValues);
 
-        // --- DISPLAY OUTPUT TO UI ---
+        // --- แสดงผลบนหน้าเว็บ ---
         // 1. สภาพอากาศ
-        document.getElementById('resWeather').innerText = `${weatherInfo.condition}, ${weatherInfo.temperature_c} °C`;
+        document.getElementById('resWeather').innerText = `${weatherCondition}, 31.5 °C`;
 
-        // 2. ค่าสีท้องฟ้า
-        const roundedRgb = predictedRgb.map(v => Math.round(v));
+        // 2. ค่าสี RGB
+        const roundedRgb = rgbValues.map(v => Math.round(v));
         const rgbStr = `rgb(${roundedRgb.join(',')})`;
         document.getElementById('resRgbText').innerText = `RGB(${roundedRgb.join(', ')})`;
         document.getElementById('resColorBadge').style.backgroundColor = rgbStr;
 
-        // 3. ภาพท้องฟ้าที่ดึงจากคลัง
+        // 3. รูปภาพ
         const skyImgElement = document.getElementById('resSkyImage');
-        skyImgElement.src = retrievedImageUrl;
+        skyImgElement.src = imageUrl;
         skyImgElement.onerror = function() {
-            // สำรองกรณีภาพในโฟลเดอร์ images/ หาไม่พบ
             this.src = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80';
         };
 
-        // 4. คำแนะนำกิจกรรม
+        // 4. คำแนะนำ
         document.getElementById('resRecommendation').innerText = recommendation;
 
-        // สลับการแสดงผลหน้า UI
+        // สลับมุมมองไปที่หน้าแสดงผลลัพธ์
         document.getElementById('placeholderState').style.display = 'none';
         document.getElementById('resultsState').style.display = 'block';
     }
