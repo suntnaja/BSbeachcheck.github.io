@@ -51,7 +51,14 @@ async function fetchHistoricalWeather(datetimeStr) {
             fetch(dailyUrl, requestOptions)
         ]);
 
-        if (!hourlyRes.ok || !dailyRes.ok) throw new Error("ไม่สามารถเชื่อมต่อ TMD NWP API ได้");
+        if (!hourlyRes.ok) {
+            const errText = await hourlyRes.text();
+            throw new Error(`TMD รายชั่วโมงปฏิเสธการเชื่อมต่อ (Status ${hourlyRes.status}): ${errText}`);
+        }
+        if (!dailyRes.ok) {
+            const errText = await dailyRes.text();
+            throw new Error(`TMD รายวันปฏิเสธการเชื่อมต่อ (Status ${dailyRes.status}): ${errText}`);
+        }
 
         const hourlyData = await hourlyRes.json();
         const dailyData = await dailyRes.json();
