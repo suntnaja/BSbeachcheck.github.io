@@ -27,16 +27,8 @@ async function fetchHistoricalWeather(datetimeStr) {
         const dateStr = dateObj.toISOString().split('T')[0];
         const hour = dateObj.getHours();
 
-        // 🌟 1. ใช้ CORS Proxy เพื่อเป็นสื่อกลางทะลุการบล็อกของเบราว์เซอร์
-        const proxy = "https://thingproxy.freeboard.io/fetch/";
-
-        // URL ต้นฉบับ
-        const rawHourlyUrl = `https://data.tmd.go.th/nwpapi/v1/forecast/location/hourly/at?lat=${LAT}&lon=${LON}&fields=tc,rh,rain,cloudlow,cloudmed,cloudhigh,cond&date=${dateStr}&hour=${hour}&duration=1`;
-        const rawDailyUrl = `https://data.tmd.go.th/nwpapi/v1/forecast/location/daily/at?lat=${LAT}&lon=${LON}&fields=swdown&date=${dateStr}&duration=1`;
-
-        // นำ URL มาเข้ารหัสต่อท้าย Proxy
-        const hourlyUrl = proxy + encodeURIComponent(rawHourlyUrl);
-        const dailyUrl = proxy + encodeURIComponent(rawDailyUrl);
+        const hourlyUrl = `https://data.tmd.go.th/nwpapi/v1/forecast/location/hourly/at?lat=${LAT}&lon=${LON}&fields=tc,rh,rain,cloudlow,cloudmed,cloudhigh,cond&date=${dateStr}&hour=${hour}&duration=1`;
+        const dailyUrl = `https://data.tmd.go.th/nwpapi/v1/forecast/location/daily/at?lat=${LAT}&lon=${LON}&fields=swdown&date=${dateStr}&duration=1`;
 
         const requestOptions = {
             method: "GET",
