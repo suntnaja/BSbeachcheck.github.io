@@ -1,31 +1,40 @@
 from datetime import datetime
 import numpy as np
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware  # นำเข้า CORSMiddleware สำหรับแก้ปัญหา Cross-Origin
 from pydantic import BaseModel
-import requests
 
 app = FastAPI(title="Bangsaen Sky Predictor API")
 
+# --- เพิ่ม CORS Middleware เพื่ออนุญาตให้ GitHub Pages ยิง API เข้ามาได้ ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # อนุญาตทุกโดเมน (รวมถึง GitHub Pages)
+    allow_credentials=True,
+    allow_methods=["*"],  # อนุญาตทุก HTTP Methods (GET, POST, ฯลฯ)
+    allow_headers=["*"],
+)
+
 # Mock Database: คลังภาพถ่ายท้องฟ้าจริง (Image Retrieval Database)
-# ในระบบจริงจะเปรียบเทียบจาก Feature Vector (RGB/HSV) ใน Database
+# ใช้ URL ภาพจริงจาก Unsplash เพื่อให้แสดงผลบนหน้าเว็บได้จริง
 IMAGE_DATABASE = [
     {
         "id": 1,
         "sky_label": "clear_sky",
-        "avg_rgb": [135, 206, 235],
-        "image_url": "https://example.com/images/clear_sky_bangsaen.jpg",
+        "avg_rgb": [130, 200, 230],
+        "image_url": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80",
     },
     {
         "id": 2,
         "sky_label": "sunset",
-        "avg_rgb": [255, 127, 80],
-        "image_url": "https://example.com/images/sunset_bangsaen.jpg",
+        "avg_rgb": [240, 120, 70],
+        "image_url": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80",
     },
     {
         "id": 3,
-        "sky_label": "overcast",
-        "avg_rgb": [169, 169, 169],
-        "image_url": "https://example.com/images/overcast_bangsaen.jpg",
+        "sky_label": "night",
+        "avg_rgb": [30, 40, 60],
+        "image_url": "https://images.unsplash.com/photo-1509114397022-ed747cca3f65?auto=format&fit=crop&w=800&q=80",
     },
 ]
 
@@ -38,14 +47,12 @@ class PredictionRequest(BaseModel):
 # --- STEP 1: FETCH (Weather Forecast API) ---
 def fetch_weather_forecast(dt: datetime) -> dict:
     # สมมุติการยิง API สภาพอากาศล่วงหน้า
-    # ในใช้งานจริง: requests.get(f"https://api.weather.com/v1/...&time={dt}")
     return {"temperature_c": 31.5, "humidity": 65, "condition": "Sunny"}
 
 
 # --- STEP 2: PREDICT (Predict Sky Color with Trained Model) ---
 def predict_sky_color(dt: datetime, weather_data: dict) -> list:
-    # ในใช้งานจริง: model.predict([dt.hour, weather_data['humidity'], ...])
-    # จำลอง Output ค่าสี RGB ที่โมเดลทำนายได้
+    # จำลอง Output ค่าสี RGB ที่โมเดลทำนายได้ตามช่วงเวลา
     hour = dt.hour
     if 6 <= hour < 16:
         return [130, 200, 230]  # ฟ้าสดใส
@@ -74,10 +81,10 @@ def retrieve_matching_image(predicted_rgb: list) -> str:
 def generate_activity_recommendation(weather: dict, rgb: list) -> str:
     if weather["condition"] == "Sunny" and rgb[0] > 200:
         return "เหมาะแก่การเดินเล่นชมพระอาทิตย์ตกดิน และถ่ายรูปริมหาดบางแสน"
-    elif weather["condition"] == "Sunny":
+    elif weather["condition"] == "Sunny" and rgb[2] > 200:
         return "เหมาะแก่การเล่นน้ำทะเล พักผ่อนใต้ร่มเตียงผ้าใบ หรือเล่นบานาน่าโบ๊ท"
     else:
-        return "แนะนำนั่งพักผ่อนในคาเฟ่ริมหาด หลีกเลี่ยงกิจกรรมกลางแจ้ง"
+        return "แนะนำนั่งพักผ่อนในคาเฟ่ริมหาด ชมบรรยากาศยามค่ำคืน"
 
 
 # --- MAIN PIPELINE (ENDPOINT) ---
