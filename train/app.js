@@ -197,10 +197,41 @@ document.addEventListener("DOMContentLoaded", () => {
     // 4.3 เมื่อกดปุ่ม Train (สกัดสี + ดึงสภาพอากาศ + วาดตาราง)
     // ------------------------------------------
     // (ในส่วนของ document.getElementById('trainForm').addEventListener('submit', ...) )
+   document.getElementById('trainForm').addEventListener('submit', async function(e) {
+        e.preventDefault(); // 🛑 โค้ดบรรทัดนี้สำคัญมาก! ทำหน้าที่ป้องกันไม่ให้หน้าเว็บรีเฟรชตัวเอง
+
+        const files = document.getElementById('images').files;
+        const inputs = document.querySelectorAll('.datetime-input');
+        const imgFolder = document.getElementById('ghImageFolder').value.replace(/\/$/, ""); 
+        
+        document.getElementById('loadingText').innerText = "กำลังสกัดค่าสี และดึงข้อมูลจาก TMD NWP API...";
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('resultSection').style.display = 'none';
+
+        globalModel.records = [];
+        globalModel.pendingUploads = [];
+
+        const tbody = document.getElementById('resultTableBody');
+        tbody.innerHTML = ''; 
+
+        try {
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const inputTime = inputs[i].value; 
                 
+                // สกัดสี และ ดึง API พร้อมกัน
+                const [color, weatherInfo] = await Promise.all([
+                    extractSkyColors(file),
+                    fetchHistoricalWeather(inputTime)
+                ]);
+                
+                const uniqueFilename = `${Date.now()}_${file.name}`;
+                const fullImagePath = `${imgFolder}/${uniqueFilename}`; 
+
                 const badgeClass = weatherInfo.label === 1 ? "bg-warning text-dark" : "bg-secondary";
                 const badgeText = weatherInfo.label === 1 ? "กลุ่ม 1 (ฟ้าโปร่ง)" : "กลุ่ม 0 (ฟ้าหม่น)";
 
+                // สร้างแถวตาราง
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td><img src="${color.previewUrl}" class="thumbnail-img"></td>
@@ -242,6 +273,22 @@ document.addEventListener("DOMContentLoaded", () => {
                     S_mean: color.S_mean,
                     V_mean: color.V_mean
                 });
+
+                globalModel.pendingUploads.push({
+                    fileData: file,
+                    uploadPath: fullImagePath
+                });
+            }
+            
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('accText').innerText = `✅ ดึงข้อมูลสำเร็จ! (วิเคราะห์ไป ${files.length} ภาพ)`;
+            document.getElementById('resultSection').style.display = 'block';
+
+        } catch (error) {
+            document.getElementById('loading').style.display = 'none';
+            alert(`เกิดข้อผิดพลาด: ${error.message}`);
+        }
+    });
 
     // ------------------------------------------
     // 4.4 เมื่อกด Save ขึ้น GitHub
