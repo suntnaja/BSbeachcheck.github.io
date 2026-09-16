@@ -1,7 +1,6 @@
 // ==========================================
 // 1. DATA INGESTION & PREPROCESSING
 // ==========================================
-// ดึงข้อมูลสภาพอากาศประวัติศาสตร์ (จำลอง) แบบเดียวกับ Python[cite: 2]
 function getHistoricalWeather(timestamp) {
     let hour = 12;
     if (timestamp) {
@@ -14,35 +13,18 @@ function getHistoricalWeather(timestamp) {
     }
 }
 
-// แปลง RGB เป็น HSV อย่างง่ายเพื่อให้ได้ Features ครบแบบ OpenCV[cite: 2]
-function rgbToHsv(r, g, b) {
-    r /= 255; g /= 255; b /= 255;
-    let max = Math.max(r, g, b), min = Math.min(r, g, b);
-    let h, s, v = max;
-    let d = max - min;
-    s = max === 0 ? 0 : d / max;
-    if (max == min) {
-        h = 0;
-    } else {
-        switch (max) {
-            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-            case g: h = (b - r) / d + 2; break;
-            case b: h = (r - g) / d + 4; break;
-        }
-        h /= 6;
-    }
-    return [Math.round(h * 179), Math.round(s * 255), Math.round(v * 255)];
-}
-
 // ==========================================
-// 2. FEATURES (สกัดข้อมูลสีท้องฟ้าแทน OpenCV)
+// 2. FEATURES (สกัดข้อมูลสีท้องฟ้า)
 // ==========================================
 function extractSkyColors(file) {
-    return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const img = new Image();
-            img.onload = function() {
+    return new Promise((resolve, reject) => { // ✅ เพิ่ม reject สำหรับกรณีเกิด Error
+        const img = new Image();
+        
+        // ✅ เปลี่ยนมาใช้ URL.createObjectURL เร็วและประหยัดแรมกว่า FileReader มหาศาล
+        const objectUrl = URL.createObjectURL(file);
+
+        img.onload = function() {
+            try {
                 const canvas = document.getElementById('hiddenCanvas');
                 const ctx = canvas.getContext('2d');
                 canvas.width = 400; canvas.height = 300;
@@ -65,16 +47,22 @@ function extractSkyColors(file) {
                     R_mean: parseFloat(rMean.toFixed(2)),
                     G_mean: parseFloat(gMean.toFixed(2)),
                     B_mean: parseFloat(bMean.toFixed(2)),
-                    previewUrl: e.target.result // ส่ง URL ภาพตัวอย่างกลับไป
+                    previewUrl: objectUrl // ส่ง URL ชั่วคราวไปแสดงภาพพรีวิว
                 });
-            };
-            img.src = e.target.result;
+            } catch (err) {
+                reject(err);
+            }
         };
-        reader.readAsDataURL(file);
+
+        // ✅ ดักจับ Error ถ้าเบราว์เซอร์อ่านภาพไม่ได้ (ป้องกันระบบค้าง)
+        img.onerror = function() {
+            reject(new Error(`ไม่สามารถอ่านไฟล์ภาพ ${file.name} ได้ (อาจเป็นไฟล์ที่ไม่รองรับ)`));
+        };
+
+        img.src = objectUrl;
     });
 }
 
-// แปลงไฟล์เป็น Base64 สำหรับ GitHub API
 function fileToBase64(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -93,15 +81,13 @@ class SkyWeatherModel {
         this.pendingUploads = [];
     }
 }
-
 const globalModel = new SkyWeatherModel();
 
 // ==========================================
-// 4. User Interface Logic (แทนที่ Flask Routes)
+// 4. User Interface Logic (Events)
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
     
-    // สร้างช่องใส่วันเวลาเมื่อเลือกไฟล์[cite: 3]
     document.getElementById('images').addEventListener('change', function(e) {
         const files = e.target.files;
         const container = document.getElementById('fileListContainer');
@@ -122,76 +108,81 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // แอคชัน: เมื่อกด Train[cite: 3]
     document.getElementById('trainForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const files = document.getElementById('images').files;
-    const inputs = document.querySelectorAll('.datetime-input');
-    const imgFolder = document.getElementById('ghImageFolder').value.replace(/\/$/, ""); 
-    
-    document.getElementById('loadingText').innerText = "กำลังสกัดค่าสีและ Train โมเดล...";
-    document.getElementById('loading').style.display = 'block';
-    document.getElementById('resultSection').style.display = 'none';
-
-    globalModel.records = [];
-    globalModel.pendingUploads = [];
-
-    // ดึง body ของตารางมาเพื่อเตรียมแทรกข้อมูล
-    const tbody = document.getElementById('resultTableBody');
-    tbody.innerHTML = ''; 
-
-    for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const color = await extractSkyColors(file);
-        const inputTime = inputs[i].value; 
-        const weatherInfo = getHistoricalWeather(inputTime);
+        e.preventDefault();
+        const files = document.getElementById('images').files;
+        const inputs = document.querySelectorAll('.datetime-input');
+        const imgFolder = document.getElementById('ghImageFolder').value.replace(/\/$/, ""); 
         
-        const uniqueFilename = `${Date.now()}_${file.name}`;
-        const fullImagePath = `${imgFolder}/${uniqueFilename}`; 
+        document.getElementById('loadingText').innerText = "กำลังสกัดค่าสีและสร้างตารางผลลัพธ์...";
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('resultSection').style.display = 'none';
 
-        // สร้าง HTML สำหรับ 1 แถวในตารางผลลัพธ์
-        const weatherIcon = weatherInfo.label === 1 ? "☀️" : "☁️";
-        const badgeClass = weatherInfo.label === 1 ? "bg-warning text-dark" : "bg-secondary";
-        const badgeText = weatherInfo.label === 1 ? "กลุ่ม 1 (ฟ้าโปร่ง)" : "กลุ่ม 0 (ฟ้าหม่น)";
+        globalModel.records = [];
+        globalModel.pendingUploads = [];
 
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td><img src="${color.previewUrl}" class="thumbnail-img"></td>
-            <td>
-                <div class="fw-bold text-muted" style="font-size: 0.9em;">${inputTime.replace('T', ' ')}</div>
-                <div>${weatherInfo.weather_status} ${weatherIcon}</div>
-            </td>
-            <td>
-                <span style="color: #d9534f; font-weight: bold;">R: ${color.R_mean}</span><br>
-                <span style="color: #5cb85c; font-weight: bold;">G: ${color.G_mean}</span><br>
-                <span style="color: #5bc0de; font-weight: bold;">B: ${color.B_mean}</span>
-            </td>
-            <td><span class="badge ${badgeClass} px-3 py-2">${badgeText}</span></td>
-        `;
-        tbody.appendChild(row);
+        const tbody = document.getElementById('resultTableBody');
+        tbody.innerHTML = ''; 
 
-        globalModel.records.push({
-            image_path: fullImagePath,
-            timestamp: inputTime,
-            weather_status: weatherInfo.weather_status,
-            label: weatherInfo.label,
-            R_mean: color.R_mean,
-            G_mean: color.G_mean,
-            B_mean: color.B_mean
-        });
+        // ✅ ห่อหุ้มการทำงานด้วย try...catch เพื่อป้องกันระบบค้างหากมีภาพพัง
+        try {
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const color = await extractSkyColors(file);
+                const inputTime = inputs[i].value; 
+                const weatherInfo = getHistoricalWeather(inputTime);
+                
+                const uniqueFilename = `${Date.now()}_${file.name}`;
+                const fullImagePath = `${imgFolder}/${uniqueFilename}`; 
 
-        globalModel.pendingUploads.push({
-            fileData: file,
-            uploadPath: fullImagePath
-        });
-    }
-    
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('accText').innerText = `🎯 เรียนรู้ภาพสำเร็จ ${files.length} ภาพ`;
-    document.getElementById('resultSection').style.display = 'block';
-});
+                const weatherIcon = weatherInfo.label === 1 ? "☀️" : "☁️";
+                const badgeClass = weatherInfo.label === 1 ? "bg-warning text-dark" : "bg-secondary";
+                const badgeText = weatherInfo.label === 1 ? "กลุ่ม 1 (ฟ้าโปร่ง)" : "กลุ่ม 0 (ฟ้าหม่น)";
 
-    // แอคชัน: เมื่อกด Save ขึ้น GitHub
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><img src="${color.previewUrl}" class="thumbnail-img"></td>
+                    <td>
+                        <div class="fw-bold text-muted" style="font-size: 0.9em;">${inputTime.replace('T', ' ')}</div>
+                        <div>${weatherInfo.weather_status} ${weatherIcon}</div>
+                    </td>
+                    <td>
+                        <span style="color: #d9534f; font-weight: bold;">R: ${color.R_mean}</span><br>
+                        <span style="color: #5cb85c; font-weight: bold;">G: ${color.G_mean}</span><br>
+                        <span style="color: #5bc0de; font-weight: bold;">B: ${color.B_mean}</span>
+                    </td>
+                    <td><span class="badge ${badgeClass} px-3 py-2">${badgeText}</span></td>
+                `;
+                tbody.appendChild(row);
+
+                globalModel.records.push({
+                    image_path: fullImagePath,
+                    timestamp: inputTime,
+                    weather_status: weatherInfo.weather_status,
+                    label: weatherInfo.label,
+                    R_mean: color.R_mean,
+                    G_mean: color.G_mean,
+                    B_mean: color.B_mean
+                });
+
+                globalModel.pendingUploads.push({
+                    fileData: file,
+                    uploadPath: fullImagePath
+                });
+            }
+            
+            // เมื่อเสร็จสิ้นทุกลูป ให้แสดงผลลัพธ์
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('accText').innerText = `✅ จัดกลุ่มภาพเสร็จสิ้น! (วิเคราะห์ไป ${files.length} ภาพ)`;
+            document.getElementById('resultSection').style.display = 'block';
+
+        } catch (error) {
+            // ✅ ดักจับ Error และแจ้งผู้ใช้เพื่อไม่ให้โปรแกรมค้าง
+            document.getElementById('loading').style.display = 'none';
+            alert(`เกิดข้อผิดพลาด: ${error.message}`);
+        }
+    });
+
     document.getElementById('saveModelBtn').addEventListener('click', async function() {
         const owner = document.getElementById('ghOwner').value;
         const repo = document.getElementById('ghRepo').value;
@@ -204,11 +195,9 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById('loading').style.display = 'block';
         
         try {
-            // 1. อัปโหลดภาพทีละไฟล์ไปยังโฟลเดอร์ images/
             const totalFiles = globalModel.pendingUploads.length;
             for (let i = 0; i < totalFiles; i++) {
                 document.getElementById('loadingText').innerText = `กำลังอัปโหลดรูปภาพที่ ${i+1} / ${totalFiles}...`;
-                
                 const uploadItem = globalModel.pendingUploads[i];
                 const base64Data = await fileToBase64(uploadItem.fileData);
                 
@@ -220,7 +209,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 });
             }
 
-            // 2. อัปเดตไฟล์ฐานข้อมูล JSON
             document.getElementById('loadingText').innerText = "กำลังอัปเดตไฟล์ฐานข้อมูลโมเดล (JSON)...";
             const dbUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
             const headers = { "Authorization": `token ${token}`, "Content-Type": "application/json" };
@@ -250,7 +238,6 @@ document.addEventListener("DOMContentLoaded", () => {
             if(putRes.ok) {
                 alert(`☁️ อัปโหลดเสร็จสมบูรณ์!\nอัปโหลดรูปภาพ ${totalFiles} ไฟล์ และอัปเดตฐานข้อมูลสำเร็จ`);
                 
-                // เคลียร์ฟอร์มหลังบันทึกเสร็จ
                 document.getElementById('trainForm').reset();
                 document.getElementById('fileListContainer').innerHTML = '';
                 document.getElementById('dateTimeInputSection').style.display = 'none';
