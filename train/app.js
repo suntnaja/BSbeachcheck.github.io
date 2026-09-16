@@ -27,8 +27,15 @@ async function fetchHistoricalWeather(datetimeStr) {
         const dateStr = dateObj.toISOString().split('T')[0];
         const hour = dateObj.getHours();
 
-        const hourlyUrl = `https://data.tmd.go.th/nwpapi/v1/forecast/location/hourly/at?lat=${LAT}&lon=${LON}&fields=tc,rh,rain,cloudlow,cloudmed,cloudhigh,cond&date=${dateStr}&hour=${hour}&duration=1`;
-        const dailyUrl = `https://data.tmd.go.th/nwpapi/v1/forecast/location/daily/at?lat=${LAT}&lon=${LON}&fields=swdown&date=${dateStr}&duration=1`;
+        const myProxy = "https://tmd-proxy.sunt8346.workers.dev/?url=";
+
+        // URL ต้นฉบับของกรมอุตุฯ
+        const rawHourlyUrl = `https://data.tmd.go.th/nwpapi/v1/forecast/location/hourly/at?lat=${LAT}&lon=${LON}&fields=tc,rh,rain,cloudlow,cloudmed,cloudhigh,cond&date=${dateStr}&hour=${hour}&duration=1`;
+        const rawDailyUrl = `https://data.tmd.go.th/nwpapi/v1/forecast/location/daily/at?lat=${LAT}&lon=${LON}&fields=swdown&date=${dateStr}&duration=1`;
+
+        // ต่อ URL เข้าด้วยกัน
+        const hourlyUrl = myProxy + encodeURIComponent(rawHourlyUrl);
+        const dailyUrl = myProxy + encodeURIComponent(rawDailyUrl);
 
         const requestOptions = {
             method: "GET",
