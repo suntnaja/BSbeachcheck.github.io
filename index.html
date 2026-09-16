@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bangsaen Sky Predictor - พยากรณ์ท้องฟ้าและสภาพอากาศบางแสน</title>
-    <!-- นำเข้า ฟอนต์ Prompt จาก Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- นำเข้า Font Awesome สำหรับ Icon -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
@@ -20,311 +18,93 @@
             --text-sub: #6c757d;
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Prompt', sans-serif;
-        }
-
-        body {
-            background: var(--bg-gradient);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-            color: var(--text-main);
-        }
-
-        .container {
-            width: 100%;
-            max-width: 900px;
-            background: var(--card-bg);
-            border-radius: 20px;
-            box-shadow: 0 15px 35px rgba(0, 119, 182, 0.15);
-            overflow: hidden;
-            display: grid;
-            grid-template-columns: 1fr;
-        }
-
-        @media (min-width: 768px) {
-            .container {
-                grid-template-columns: 350px 1fr;
-            }
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Prompt', sans-serif; }
+        body { background: var(--bg-gradient); min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; color: var(--text-main); }
+        .container { width: 100%; max-width: 900px; background: var(--card-bg); border-radius: 20px; box-shadow: 0 15px 35px rgba(0, 119, 182, 0.15); overflow: hidden; display: grid; grid-template-columns: 1fr; }
+        @media (min-width: 768px) { .container { grid-template-columns: 350px 1fr; } }
 
         /* Control Panel (INPUT) */
-        .control-panel {
-            background: #f8f9fa;
-            padding: 30px 25px;
-            border-right: 1px solid #edf2f7;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
-
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 25px;
-            color: var(--primary);
-        }
-
-        .brand i {
-            font-size: 2rem;
-        }
-
-        .brand h1 {
-            font-size: 1.25rem;
-            font-weight: 700;
-            line-height: 1.2;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            font-size: 0.9rem;
-            font-weight: 500;
-            margin-bottom: 8px;
-            color: var(--text-sub);
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 12px 15px;
-            border: 2px solid #e2e8f0;
-            border-radius: 10px;
-            font-size: 0.95rem;
-            outline: none;
-            transition: all 0.3s ease;
-        }
-
-        .form-control:focus {
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(0, 180, 216, 0.2);
-        }
-
-        .btn-submit {
-            width: 100%;
-            padding: 14px;
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .btn-submit:hover {
-            background: var(--primary-hover);
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 119, 182, 0.3);
-        }
+        .control-panel { background: #f8f9fa; padding: 30px 25px; border-right: 1px solid #edf2f7; display: flex; flex-direction: column; justify-content: space-between; }
+        .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 25px; color: var(--primary); }
+        .brand i { font-size: 2rem; }
+        .brand h1 { font-size: 1.25rem; font-weight: 700; line-height: 1.2; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-size: 0.9rem; font-weight: 500; margin-bottom: 8px; color: var(--text-sub); }
+        .form-control { width: 100%; padding: 12px 15px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 0.95rem; outline: none; transition: all 0.3s ease; }
+        .form-control:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0, 180, 216, 0.2); }
+        .btn-submit { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; display: flex; justify-content: center; align-items: center; gap: 8px; }
+        .btn-submit:hover { background: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0, 119, 182, 0.3); }
+        .btn-submit:disabled { background: #a0aec0; cursor: not-allowed; }
 
         /* Output Dashboard (OUTPUT) */
-        .display-panel {
-            padding: 30px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
+        .display-panel { padding: 30px; display: flex; flex-direction: column; justify-content: center; }
+        .placeholder-state { text-align: center; color: var(--text-sub); padding: 40px 20px; }
+        .placeholder-state i { font-size: 4rem; color: #cbd5e1; margin-bottom: 15px; }
+        .results-state { display: none; animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .results-header { border-bottom: 2px solid #f1f5f9; padding-bottom: 15px; margin-bottom: 20px; }
+        .results-header h2 { font-size: 1.4rem; color: var(--primary); }
 
-        .placeholder-state {
-            text-align: center;
-            color: var(--text-sub);
-            padding: 40px 20px;
-        }
+        .output-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .info-card { background: #f8fafc; border-radius: 12px; padding: 15px; border: 1px solid #e2e8f0; }
+        .info-card .title { font-size: 0.8rem; color: var(--text-sub); margin-bottom: 5px; display: flex; align-items: center; gap: 6px; }
+        .info-card .value { font-size: 1.1rem; font-weight: 600; }
+        .color-indicator { display: flex; align-items: center; gap: 10px; margin-top: 5px; }
+        .color-badge { width: 28px; height: 28px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
 
-        .placeholder-state i {
-            font-size: 4rem;
-            color: #cbd5e1;
-            margin-bottom: 15px;
-        }
+        .image-preview-container { margin-bottom: 20px; position: relative; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-height: 220px; }
+        .image-preview-container img { width: 100%; height: 220px; object-fit: cover; display: block; }
+        .image-badge { position: absolute; bottom: 10px; right: 10px; background: rgba(0, 0, 0, 0.6); color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; backdrop-filter: blur(4px); }
+        .similarity-badge { position: absolute; top: 10px; right: 10px; background: var(--accent); color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
 
-        .results-state {
-            display: none;
-            animation: fadeIn 0.5s ease-in-out;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .results-header {
-            border-bottom: 2px solid #f1f5f9;
-            padding-bottom: 15px;
-            margin-bottom: 20px;
-        }
-
-        .results-header h2 {
-            font-size: 1.4rem;
-            color: var(--primary);
-        }
-
-        /* 4 ผลลัพธ์หลัก */
-        .output-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
-        .info-card {
-            background: #f8fafc;
-            border-radius: 12px;
-            padding: 15px;
-            border: 1px solid #e2e8f0;
-        }
-
-        .info-card .title {
-            font-size: 0.8rem;
-            color: var(--text-sub);
-            margin-bottom: 5px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .info-card .value {
-            font-size: 1.1rem;
-            font-weight: 600;
-        }
-
-        /* Sky Color Box */
-        .color-indicator {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-top: 5px;
-        }
-
-        .color-badge {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            border: 2px solid #fff;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-
-        /* Retrieved Image View */
-        .image-preview-container {
-            margin-bottom: 20px;
-            position: relative;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            max-height: 220px;
-        }
-
-        .image-preview-container img {
-            width: 100%;
-            height: 220px;
-            object-fit: cover;
-            display: block;
-        }
-
-        .image-badge {
-            position: absolute;
-            bottom: 10px;
-            right: 10px;
-            background: rgba(0, 0, 0, 0.6);
-            color: white;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            backdrop-filter: blur(4px);
-        }
-
-        /* Recommendations */
-        .recommendation-box {
-            background: #e0f2fe;
-            border-left: 4px solid var(--accent);
-            padding: 15px;
-            border-radius: 0 10px 10px 0;
-        }
-
-        .recommendation-box h4 {
-            font-size: 0.9rem;
-            color: #0369a1;
-            margin-bottom: 4px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .recommendation-box p {
-            font-size: 0.95rem;
-            color: #0c4a6e;
-        }
+        .recommendation-box { background: #e0f2fe; border-left: 4px solid var(--accent); padding: 15px; border-radius: 0 10px 10px 0; }
+        .recommendation-box h4 { font-size: 0.9rem; color: #0369a1; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+        .recommendation-box p { font-size: 0.95rem; color: #0c4a6e; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <!-- ฝั่งซ้าย: ส่วนใส่ข้อมูล (INPUT) -->
     <div class="control-panel">
         <div>
             <div class="brand">
                 <i class="fa-solid fa-umbrella-beach"></i>
                 <h1>Bangsaen Sky<br>Predictor</h1>
             </div>
-
             <form id="predictForm" onsubmit="handlePredictJS(event)">
                 <div class="form-group">
                     <label for="datetimeInput"><i class="fa-regular fa-calendar-days"></i> เลือกวันและเวลาที่ต้องการพยากรณ์</label>
                     <input type="datetime-local" id="datetimeInput" class="form-control" required>
                 </div>
-
                 <button type="submit" class="btn-submit" id="submitBtn">
                     <i class="fa-solid fa-wand-magic-sparkles"></i> พยากรณ์ท้องฟ้า
                 </button>
             </form>
         </div>
-
         <div style="font-size: 0.75rem; color: var(--text-sub); text-align: center; margin-top: 20px;">
-            ระบบประมวลผลด้วย JavaScript Pure Engine
+            เชื่อมต่อข้อมูลสภาพอากาศเรียลไทม์จาก Visual Crossing API
         </div>
     </div>
 
-    <!-- ฝั่งขวา: ส่วนแสดงผลลัพธ์ (OUTPUT) -->
     <div class="display-panel">
-        
-        <!-- สถานะยังไม่ได้กดพยากรณ์ -->
         <div id="placeholderState" class="placeholder-state">
             <i class="fa-solid fa-cloud-sun"></i>
             <h3>รอรับผลการพยากรณ์</h3>
             <p>กรุณาเลือกวันและเวลาจากเมนูด้านซ้าย แล้วกด "พยากรณ์ท้องฟ้า"</p>
         </div>
 
-        <!-- สถานะแสดงผลลัพธ์การพยากรณ์ -->
         <div id="resultsState" class="results-state">
             <div class="results-header">
                 <h2><i class="fa-solid fa-square-poll-vertical"></i> ผลการพยากรณ์ (OUTPUT)</h2>
             </div>
-
-            <!-- Grid สภาพอากาศ + ค่าสีท้องฟ้า -->
             <div class="output-grid">
-                <!-- 1. Weather Info -->
                 <div class="info-card">
-                    <div class="title"><i class="fa-solid fa-temperature-half"></i> สภาพอากาศที่คาดการณ์</div>
-                    <div class="value" id="resWeather">-</div>
+                    <div class="title"><i class="fa-solid fa-cloud-bolt"></i> คาดการณ์สภาพฟ้า</div>
+                    <div class="value" id="resCondition">-</div>
+                    <div style="font-size: 0.75rem; color: var(--text-sub); margin-top: 4px;" id="resEnvDetails"></div>
                 </div>
-
-                <!-- 2. Predicted Sky Color -->
                 <div class="info-card">
-                    <div class="title"><i class="fa-solid fa-palette"></i> ค่าสีท้องฟ้า (Model RGB)</div>
+                    <div class="title"><i class="fa-solid fa-palette"></i> คาดเดาเฉดสี (RGB)</div>
                     <div class="color-indicator">
                         <div class="color-badge" id="resColorBadge"></div>
                         <div class="value" id="resRgbText" style="font-size: 0.95rem;">-</div>
@@ -332,26 +112,25 @@
                 </div>
             </div>
 
-            <!-- 3. Image Retrieval -->
             <div class="image-preview-container">
+                <div class="similarity-badge" id="resSimilarity"><i class="fa-solid fa-check-double"></i> ความแม่นยำ: -%</div>
                 <img id="resSkyImage" src="" alt="ภาพจำลองท้องฟ้า">
                 <div class="image-badge"><i class="fa-solid fa-images"></i> ภาพถ่ายใกล้เคียงจากคลัง</div>
             </div>
 
-            <!-- 4. Activity Recommendation -->
             <div class="recommendation-box">
                 <h4><i class="fa-solid fa-compass"></i> คำแนะนำในการทำกิจกรรม</h4>
                 <p id="resRecommendation">-</p>
             </div>
         </div>
-
     </div>
 </div>
 
 <script>
     let IMAGE_DATABASE = [];
+    const API_KEY = "XK3URSVCSGXCGR8N9FJR69Z4Q";
+    const LOCATION = "Bangsaen,Thailand";
 
-    // โหลดข้อมูลจาก model_db.json ทันทีที่เปิดหน้าเว็บ
     window.onload = async function() {
         const now = new Date();
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
@@ -367,95 +146,161 @@
         }
     };
 
-    // ค้นหา Record ที่เวลาใกล้เคียงกับที่เลือกมากที่สุด
-    function findClosestRecordByTime(selectedDate) {
+    // 1. ดึงค่าสภาพอากาศแบบเรียลไทม์จาก Visual Crossing API
+    async function fetchRealtimeWeather(datetimeStr) {
+        const url = `https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/${encodeURIComponent(LOCATION)}/${datetimeStr}?unitGroup=metric&key=${API_KEY}&contentType=json`;
+        
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`API Request Error: ${response.statusText}`);
+        }
+        const data = await response.json();
+
+        // ดึงข้อมูลชั่วโมงที่ระบุ
+        const selectedDate = new Date(datetimeStr);
+        const hour = selectedDate.getHours();
+        const hourData = (data.days && data.days[0] && data.days[0].hours && data.days[0].hours[hour])
+            ? data.days[0].hours[hour]
+            : (data.days ? data.days[0] : data);
+
+        return {
+            temp: hourData.temp || 30,
+            cloudcover: hourData.cloudcover || 0,
+            humidity: hourData.humidity || 0,
+            visibility: hourData.visibility || 10,
+            solarradiation: hourData.solarradiation || 0,
+            conditions: hourData.conditions || "Clear"
+        };
+    }
+
+    // 2. เปรียบเทียบค่าสภาพอากาศเรียลไทม์กับฐานข้อมูลด้วย KNN Distance
+    function findNearestNeighborInDB(apiWeather) {
         if (!IMAGE_DATABASE || IMAGE_DATABASE.length === 0) return null;
 
-        let closestRecord = IMAGE_DATABASE[0];
-        let minDiff = Infinity;
-        const selectedTime = selectedDate.getTime();
+        let bestMatch = null;
+        let minDistance = Infinity;
 
         IMAGE_DATABASE.forEach(item => {
-            if (item.timestamp) {
-                const recordTime = new Date(item.timestamp).getTime();
-                const diff = Math.abs(selectedTime - recordTime);
+            if (item.weather_status === "Error") return;
 
-                if (diff < minDiff) {
-                    minDiff = diff;
-                    closestRecord = item;
-                }
+            // Normalize feature differences
+            const dCloud = ((apiWeather.cloudcover - item.env_cloudcover) / 100);
+            const dHum = ((apiWeather.humidity - item.env_humidity) / 100);
+            const dVis = (((apiWeather.visibility || 10) - (item.env_visibility || 10)) / 10);
+            const dSolar = (((apiWeather.solarradiation || 0) - (item.env_solarradiation || 0)) / 1000);
+
+            const distance = Math.sqrt(
+                Math.pow(dCloud, 2) + 
+                Math.pow(dHum, 2) + 
+                Math.pow(dVis, 2) + 
+                Math.pow(dSolar, 2)
+            );
+
+            if (distance < minDistance) {
+                minDistance = distance;
+                bestMatch = item;
             }
         });
 
-        return closestRecord;
+        return bestMatch || IMAGE_DATABASE[0];
     }
 
-    // ฟังก์ชันคำนวณคำแนะนำตามสภาพอากาศ
-    function getRecommendation(condition, rgb) {
-        if (condition === "Clear" || condition === "Sunny") {
-            if (rgb[0] > 200) {
-                return "ท้องฟ้าแจ่มใสยามเย็น เหมาะแก่การเดินเล่นชมพระอาทิตย์ตกดิน และถ่ายรูปริมหาดบางแสน";
-            }
-            return "สภาพอากาศแจ่มใส เหมาะแก่การเล่นน้ำทะเล พักผ่อนใต้ร่มเตียงผ้าใบ หรือเล่นบานาน่าโบ๊ท";
-        } else if (condition === "Gloomy" || condition === "Cloudy") {
-            return "ท้องฟ้ามืดครึ้ม/มีเมฆมาก แนะนำนั่งพักผ่อนในคาเฟ่ริมหาด ชมบรรยากาศชิลๆ";
-        } else if (condition === "Rain" || condition === "Rainy") {
-            return "ฝนตก หลีกเลี่ยงกิจกรรมชายหาดกลางแจ้ง และเตรียมร่มหรือเสื้อกันฝน";
-        } else {
-            return "แนะนำพักผ่อนบริเวณชายหาด และตรวจสอบสภาพอากาศเป็นระยะ";
-        }
+    // คำนวณเปอร์เซ็นต์ความคล้ายคลึงของค่าสี RGB
+    function calculateRgbSimilarity(rgb1, rgb2) {
+        const distance = Math.sqrt(
+            Math.pow(rgb1[0] - rgb2[0], 2) +
+            Math.pow(rgb1[1] - rgb2[1], 2) +
+            Math.pow(rgb1[2] - rgb2[2], 2)
+        );
+        const maxDistance = 441.67; 
+        const similarity = ((1 - (distance / maxDistance)) * 100).toFixed(2);
+        return parseFloat(similarity);
     }
 
-    // ประมวลผลเมื่อกดปุ่มพยากรณ์
-    function handlePredictJS(e) {
+    // 3. ดึงภาพที่ใกล้เคียงกับข้อมูลที่คาดเดาได้มากที่สุดอย่างน้อย 80%
+    function retrieveBestMatchImage(targetRgb) {
+        let candidates = [];
+
+        IMAGE_DATABASE.forEach(item => {
+            const dbRgb = [item.R_mean || 0, item.G_mean || 0, item.B_mean || 0];
+            const similarity = calculateRgbSimilarity(targetRgb, dbRgb);
+            candidates.push({
+                image_path: item.image_path,
+                similarity: similarity
+            });
+        });
+
+        candidates.sort((a, b) => b.similarity - a.similarity);
+
+        // ดึงภาพแรกที่ความคล้าย >= 80%
+        const matched = candidates.find(c => c.similarity >= 80);
+        return matched ? matched : candidates[0];
+    }
+
+    // ประมวลผลหลักเมื่อกดปุ่ม
+    async function handlePredictJS(e) {
         e.preventDefault();
 
+        const submitBtn = document.getElementById('submitBtn');
         const rawDatetime = document.getElementById('datetimeInput').value;
-        const selectedDate = new Date(rawDatetime);
 
-        // 1. ค้นหา Record ที่ใกล้เคียงที่สุดจาก timestamp
-        const matchedRecord = findClosestRecordByTime(selectedDate);
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังเชื่อมต่อ API...';
 
-        if (!matchedRecord) {
-            alert("ไม่พบข้อมูลในฐานข้อมูล model_db.json");
-            return;
+        try {
+            // 1. ดึงข้อมูลสภาพอากาศเรียลไทม์ผ่าน API
+            const apiWeather = await fetchRealtimeWeather(rawDatetime);
+
+            // 2. เปรียบเทียบข้อมูลสภาพอากาศกับฐานข้อมูลผ่าน ML
+            const matchedDbRecord = findNearestNeighborInDB(apiWeather);
+
+            // 3. คาดเดาสภาพฟ้าโปร่ง / ฟ้าหม่น และค่าสีที่จะเกิดขึ้น
+            const isClear = apiWeather.cloudcover < 50 && !apiWeather.conditions.toLowerCase().includes("rain");
+            const skyConditionText = isClear ? "ฟ้าโปร่ง (ท้องฟ้าแจ่มใส)" : "ฟ้าหม่น (มีเมฆมาก/มืดครึ้ม)";
+
+            const predictedRgb = [
+                matchedDbRecord.R_mean || 150,
+                matchedDbRecord.G_mean || 150,
+                matchedDbRecord.B_mean || 180
+            ];
+
+            // 4. ดึงภาพถ่ายตัวอย่างที่มีความคล้ายคลึง >= 80%
+            const imageResult = retrieveBestMatchImage(predictedRgb);
+
+            // แสดงผลลัพธ์บน UI
+            document.getElementById('resCondition').innerText = skyConditionText;
+            document.getElementById('resEnvDetails').innerText = 
+                `อุณหภูมิ: ${apiWeather.temp}°C | เมฆ: ${apiWeather.cloudcover}% | ความชื้น: ${apiWeather.humidity}%`;
+
+            const roundedRgb = predictedRgb.map(v => Math.round(v));
+            document.getElementById('resRgbText').innerText = `RGB(${roundedRgb.join(', ')})`;
+            document.getElementById('resColorBadge').style.backgroundColor = `rgb(${roundedRgb.join(',')})`;
+
+            const skyImgElement = document.getElementById('resSkyImage');
+            skyImgElement.src = imageResult.image_path;
+            skyImgElement.onerror = function() {
+                this.src = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80';
+            };
+
+            const similarityEl = document.getElementById('resSimilarity');
+            similarityEl.innerHTML = `<i class="fa-solid fa-check-double"></i> คล้ายกัน: ${imageResult.similarity}%`;
+            similarityEl.style.backgroundColor = imageResult.similarity >= 80 ? "#10b981" : "#f59e0b";
+
+            let rec = isClear 
+                ? "สภาพอากาศดีมาก เหมาะแก่การทำกิจกรรม outdoor เล่นน้ำทะเล และชมทัศนียภาพริมหาดบางแสน"
+                : "ท้องฟ้าครึ้มหรือมีเมฆมาก แนะนำให้เลือกพักผ่อนในร้านอาหาร คาเฟ่ริมหาด หรือพกร่มติดตัว";
+            document.getElementById('resRecommendation').innerText = rec;
+
+            document.getElementById('placeholderState').style.display = 'none';
+            document.getElementById('resultsState').style.display = 'block';
+
+        } catch (error) {
+            console.error(error);
+            alert("เกิดข้อผิดพลาดในการดึงข้อมูลสภาพอากาศเรียลไทม์ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต");
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> พยากรณ์ท้องฟ้า';
         }
-
-        // 2. ดึงข้อมูลจาก Record นั้น
-        const weatherCondition = matchedRecord.weather_status || "Clear";
-        const rgbValues = [
-            matchedRecord.R_mean || 0,
-            matchedRecord.G_mean || 0,
-            matchedRecord.B_mean || 0
-        ];
-        const imageUrl = matchedRecord.image_path || "";
-
-        // 3. สร้างคำแนะนำกิจกรรม
-        const recommendation = getRecommendation(weatherCondition, rgbValues);
-
-        // --- แสดงผลบนหน้าเว็บ ---
-        // 1. สภาพอากาศ
-        document.getElementById('resWeather').innerText = `${weatherCondition}, 31.5 °C`;
-
-        // 2. ค่าสี RGB
-        const roundedRgb = rgbValues.map(v => Math.round(v));
-        const rgbStr = `rgb(${roundedRgb.join(',')})`;
-        document.getElementById('resRgbText').innerText = `RGB(${roundedRgb.join(', ')})`;
-        document.getElementById('resColorBadge').style.backgroundColor = rgbStr;
-
-        // 3. รูปภาพ
-        const skyImgElement = document.getElementById('resSkyImage');
-        skyImgElement.src = imageUrl;
-        skyImgElement.onerror = function() {
-            this.src = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80';
-        };
-
-        // 4. คำแนะนำ
-        document.getElementById('resRecommendation').innerText = recommendation;
-
-        // สลับมุมมองไปที่หน้าแสดงผลลัพธ์
-        document.getElementById('placeholderState').style.display = 'none';
-        document.getElementById('resultsState').style.display = 'block';
     }
 </script>
 
