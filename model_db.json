@@ -124,5 +124,23 @@
     "H_mean": 135,
     "S_mean": 22,
     "V_mean": 147
+  },
+  {
+    "image_path": "images/1789549047268_IMG_2334.jpeg",
+    "timestamp": "2026-09-16T08:00",
+    "weather_status": "Clear",
+    "conditions_desc": "Partially cloudy",
+    "label": 1,
+    "env_cloudcover": 25,
+    "env_visibility": 9.4,
+    "env_humidity": 94.32,
+    "env_precip": 0,
+    "env_solarradiation": 107,
+    "R_mean": 154.35,
+    "G_mean": 181.82,
+    "B_mean": 209.69,
+    "H_mean": 105,
+    "S_mean": 67,
+    "V_mean": 210
   }
 ]
