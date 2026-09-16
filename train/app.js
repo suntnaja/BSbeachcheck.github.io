@@ -38,10 +38,21 @@ async function fetchHistoricalWeather(datetimeStr) {
         let label = 1;
         let icon = "☀️";
         
-        if (cloudcover > 60 || precip > 0) {
+        if (precip > 0) {
+            // 1. ถ้าฝนตก = หม่นแน่นอน (ฝนตก ฟ้าปิด)
+            status = "Gloomy";
+            label = 0;
+            icon = "🌧️";
+        } else if (cloudcover > 60 && solarradiation < 400) {
+            // 2. เมฆเยอะ (เกิน 60%) **และ** แสงแดดน้อย (รังสีต่ำกว่า 400 W/m²) = ฟ้าหม่น
             status = "Gloomy";
             label = 0;
             icon = "☁️";
+        } else {
+            // 3. นอกนั้น (รวมถึงเคสเมฆ 76% แต่รังสี 699) ให้ถือว่าฟ้ายังใสสว่างอยู่
+            status = "Clear";
+            label = 1;
+            icon = "☀️";
         }
         
         return {
