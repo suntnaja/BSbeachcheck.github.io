@@ -23,76 +23,100 @@ const weatherConditionMap = {
 
 async function fetchHistoricalWeather(datetimeStr) {
     try {
+        // 1. จัดการ Format วันที่ให้ตรงกับในไฟล์ CSV (YYYY-MM-DDTHH:00:00)
         const dateObj = new Date(datetimeStr);
-        const dateStr = dateObj.toISOString().split('T')[0];
-        const hour = dateObj.getHours();
+        const year = dateObj.getFullYear();
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const day = String(dateObj.getDate()).padStart(2, '0');
+        const hour = String(dateObj.getHours()).padStart(2, '0');
+        
+        const targetDateStr = `${year}-${month}-${day}T${hour}:00:00`;
 
-        const myProxy = "https://tmd-proxy.sunt8346.workers.dev/?url=";
+        // 2. อ่านไฟล์ CSV (ไฟล์ต้องอยู่ในโฟลเดอร์เดียวกันกับหน้าเว็บ)
+        const response = await fetch('weatherdb.csv');
+        if (!response.ok) throw new Error("ไม่สามารถอ่านไฟล์ weatherdb.csv ได้ (โปรดตรวจสอบว่าไฟล์อยู่ในโฟลเดอร์เดียวกัน)");
+        
+        const csvText = await response.text();
+        const rows = csvText.split('\n');
+        
+        // อ่านหัวคอลัมน์
+        const headers = rows[0].split(',');
+        
+        // หาตำแหน่ง Index ของตัวแปรที่เลือกมาใช้
+        const dateIdx = headers.indexOf('datetime');
+        const tempIdx = headers.indexOf('temp');
+        const humidityIdx = headers.indexOf('humidity');
+        const precipIdx = headers.indexOf('precip');
+        const cloudcoverIdx = headers.indexOf('cloudcover');
+        const visibilityIdx = headers.indexOf('visibility');
+        const solarIdx = headers.indexOf('solarradiation');
+        const condIdx = headers.indexOf('conditions');
 
-        // URL ต้นฉบับของกรมอุตุฯ
-        const rawHourlyUrl = `https://data.tmd.go.th/nwpapi/v1/forecast/location/hourly/at?lat=${LAT}&lon=${LON}&fields=tc,rh,cloudlow,cloudmed,cloudhigh,cond&date=${dateStr}&hour=${hour}&duration=1`;
-        const rawDailyUrl = `https://data.tmd.go.th/nwpapi/v1/forecast/location/daily/at?lat=${LAT}&lon=${LON}&fields=swdown,rain&date=${dateStr}&duration=1`;
-
-        // ต่อ URL เข้าด้วยกัน
-        const hourlyUrl = myProxy + encodeURIComponent(rawHourlyUrl);
-        const dailyUrl = myProxy + encodeURIComponent(rawDailyUrl);
-
-        const requestOptions = {
-            method: "GET",
-            headers: {
-                "accept": "application/json",
-                "authorization": `Bearer ${TMD_ACCESS_TOKEN}`
+        // 3. ค้นหาแถวข้อมูลที่เวลาตรงกัน
+        let matchedRow = null;
+        for (let i = 1; i < rows.length; i++) {
+            if (!rows[i].trim()) continue; // ข้ามบรรทัดว่าง
+            
+            // แยกคอลัมน์ (ใช้ Regex เพื่อป้องกันปัญหามีเครื่องหมาย , ซ่อนอยู่ใน " ")
+            const cols = rows[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+            
+            if (cols.length > dateIdx && cols[dateIdx] === targetDateStr) {
+                matchedRow = cols;
+                break;
             }
-        };
-
-        const [hourlyRes, dailyRes] = await Promise.all([
-            fetch(hourlyUrl, requestOptions),
-            fetch(dailyUrl, requestOptions)
-        ]);
-
-        // 🌟 2. ดักจับ Error แบบเจาะลึก ถ้าพัง จะแจ้งเหตุผลจากเซิร์ฟเวอร์โดยตรง
-        if (!hourlyRes.ok) {
-            const errText = await hourlyRes.text();
-            throw new Error(`รายชั่วโมงล้มเหลว (Status ${hourlyRes.status}): ${errText}`);
-        }
-        if (!dailyRes.ok) {
-            const errText = await dailyRes.text();
-            throw new Error(`รายวันล้มเหลว (Status ${dailyRes.status}): ${errText}`);
         }
 
-        const hourlyData = await hourlyRes.json();
-        const dailyData = await dailyRes.json();
-
-        // 🌟 3. ป้องกันบัคกรณีที่กรมอุตุฯ ส่งข้อมูลมาเป็นค่าว่าง (เช่น การใส่วันที่ในอดีต)
-        if (!hourlyData.WeatherForecasts || hourlyData.WeatherForecasts.length === 0) {
-            throw new Error("กรมอุตุฯ ไม่มีข้อมูลของวันนี้ (โปรดหลีกเลี่ยงการเลือกวันที่ในอดีต)");
+        if (!matchedRow) {
+            throw new Error(`ไม่มีข้อมูลของเวลา ${targetDateStr.replace('T', ' ')} ในไฟล์ CSV`);
         }
 
-        const hData = hourlyData.WeatherForecasts[0].forecasts[0].data;
-        const dData = dailyData.WeatherForecasts[0].forecasts[0].data;
+        // 4. สกัดข้อมูลตัวแปรที่เกี่ยวข้อง (ถ้าช่องว่างให้มองเป็น 0)
+        const tc = parseFloat(matchedRow[tempIdx]) || 0;
+        const rh = parseFloat(matchedRow[humidityIdx]) || 0;
+        const precip = parseFloat(matchedRow[precipIdx]) || 0;
+        const cloudcover = parseFloat(matchedRow[cloudcoverIdx]) || 0;
+        const visibility = parseFloat(matchedRow[visibilityIdx]) || 0;
+        const solarradiation = parseFloat(matchedRow[solarIdx]) || 0;
+        // ลบเครื่องหมาย " ออกจากข้อความอธิบาย (ถ้ามี)
+        const conditions_text = (matchedRow[condIdx] || "Unknown").replace(/"/g, ''); 
 
-        const condCode = hData.cond || 1;
-        const weather = weatherConditionMap[condCode] || weatherConditionMap[1];
+        // 5. Logic จัดกลุ่มสภาพอากาศแบบพิจารณารังสีและเมฆ
+        let status = "Clear";
+        let label = 1;
+        let icon = "☀️";
+        
+        if (precip > 0 || conditions_text.toLowerCase().includes("rain")) {
+            status = "Gloomy";
+            label = 0;
+            icon = "🌧️";
+        } else if (cloudcover > 60 && solarradiation < 400) {
+            status = "Gloomy";
+            label = 0;
+            icon = "☁️";
+        } else {
+            status = "Clear";
+            label = 1;
+            icon = "☀️";
+        }
 
         return {
-            status: weather.text,
-            label: weather.label,
-            icon: weather.icon,
-            tc: hData.tc || 0,
-            rh: hData.rh || 0,
-            precip: dData.rain || 0,
-            cloudlow: hData.cloudlow || 0,
-            cloudmed: hData.cloudmed || 0,
-            cloudhigh: hData.cloudhigh || 0,
-            solarradiation: dData.swdown || 0,
-            conditions_text: weather.text
+            status: status,
+            label: label,
+            icon: icon,
+            tc: tc,
+            rh: rh,
+            precip: precip,
+            cloudcover: cloudcover,
+            visibility: visibility,
+            solarradiation: solarradiation,
+            conditions_text: conditions_text
         };
+
     } catch (err) {
-        console.error("TMD API Error:", err);
-        // จะนำข้อความ Error ที่แท้จริงไปแสดงผลในตาราง HTML ตรงๆ เลย
+        console.error("CSV Read Error:", err);
         return { 
             status: "Error", label: 1, icon: "❓", 
-            tc: 0, rh: 0, precip: 0, cloudlow: 0, cloudmed: 0, cloudhigh: 0, solarradiation: 0, 
+            tc: 0, rh: 0, precip: 0, cloudcover: 0, visibility: 0, solarradiation: 0, 
             conditions_text: err.message 
         };
     }
@@ -263,7 +287,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const badgeClass = weatherInfo.label === 1 ? "bg-warning text-dark" : "bg-secondary";
                 const badgeText = weatherInfo.label === 1 ? "กลุ่ม 1 (ฟ้าโปร่ง)" : "กลุ่ม 0 (ฟ้าหม่น)";
 
-                // สร้างแถวตาราง
+                // อัปเดตตาราง HTML ให้โชว์เฉพาะตัวแปรจาก CSV
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td><img src="${color.previewUrl}" class="thumbnail-img"></td>
@@ -272,8 +296,8 @@ document.addEventListener("DOMContentLoaded", () => {
                         <div class="fw-bold mt-1 text-primary">${weatherInfo.status} ${weatherInfo.icon}</div>
                         <div style="font-size: 0.8em; color: #555; margin-top: 4px;">
                             🌡️ อุณหภูมิ: ${weatherInfo.tc}°C | 💧 ความชื้น: ${weatherInfo.rh}%<br>
-                            🌧️ ปริมาณฝน: ${weatherInfo.precip} mm | ☀️ รังสีคลื่นสั้น: ${weatherInfo.solarradiation}<br>
-                            ☁️ เมฆ (ต่ำ/กลาง/สูง): ${weatherInfo.cloudlow}% / ${weatherInfo.cloudmed}% / ${weatherInfo.cloudhigh}%
+                            🌧️ ปริมาณฝน: ${weatherInfo.precip} mm | ☀️ รังสี: ${weatherInfo.solarradiation} W/m²<br>
+                            ☁️ เมฆปกคลุม: ${weatherInfo.cloudcover}% | 👀 ทัศนวิสัย: ${weatherInfo.visibility} km
                         </div>
                     </td>
                     <td>
@@ -285,19 +309,19 @@ document.addEventListener("DOMContentLoaded", () => {
                 `;
                 tbody.appendChild(row);
 
-                // อัปเดตข้อมูลที่จะส่งไปเก็บใน model_db.json
+                // อัปเดตข้อมูลที่จะส่งไปเก็บใน model_db.json ให้ชื่อตรงกับ CSV
                 globalModel.records.push({
                     image_path: fullImagePath,
                     timestamp: inputTime,
                     weather_status: weatherInfo.status,
+                    conditions_desc: weatherInfo.conditions_text,
                     label: weatherInfo.label,
-                    env_tc: weatherInfo.tc,
-                    env_rh: weatherInfo.rh,
-                    env_rain: weatherInfo.precip,
-                    env_cloudlow: weatherInfo.cloudlow,
-                    env_cloudmed: weatherInfo.cloudmed,
-                    env_cloudhigh: weatherInfo.cloudhigh,
-                    env_swdown: weatherInfo.solarradiation,
+                    env_temp: weatherInfo.tc,
+                    env_humidity: weatherInfo.rh,
+                    env_precip: weatherInfo.precip,
+                    env_cloudcover: weatherInfo.cloudcover,
+                    env_visibility: weatherInfo.visibility,
+                    env_solarradiation: weatherInfo.solarradiation,
                     R_mean: color.R_mean,
                     G_mean: color.G_mean,
                     B_mean: color.B_mean,
