@@ -772,5 +772,23 @@
     "H_mean": 15,
     "S_mean": 85,
     "V_mean": 198
+  },
+  {
+    "image_path": "images/1789550084959_IMG_1839.jpeg",
+    "timestamp": "2026-04-10T18:32",
+    "weather_status": "Error",
+    "conditions_desc": "API Error",
+    "label": 1,
+    "env_cloudcover": 0,
+    "env_visibility": 0,
+    "env_humidity": 0,
+    "env_precip": 0,
+    "env_solarradiation": 0,
+    "R_mean": 179.76,
+    "G_mean": 174.36,
+    "B_mean": 165.89,
+    "H_mean": 18,
+    "S_mean": 20,
+    "V_mean": 180
   }
 ]
