@@ -163,6 +163,20 @@ const globalModel = new SkyWeatherModel();
 // 4. User Interface Logic (Events)
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
+
+    if (localStorage.getItem('ghOwner')) document.getElementById('ghOwner').value = localStorage.getItem('ghOwner');
+    if (localStorage.getItem('ghRepo')) document.getElementById('ghRepo').value = localStorage.getItem('ghRepo');
+    if (localStorage.getItem('ghPath')) document.getElementById('ghPath').value = localStorage.getItem('ghPath');
+    if (localStorage.getItem('ghImageFolder')) document.getElementById('ghImageFolder').value = localStorage.getItem('ghImageFolder');
+    if (localStorage.getItem('ghToken')) document.getElementById('ghToken').value = localStorage.getItem('ghToken');
+
+    // 2. ดักจับเมื่อผู้ใช้พิมพ์ข้อมูลใหม่ ให้เบราว์เซอร์จำค่าไว้ทันที
+    const inputsToSave = ['ghOwner', 'ghRepo', 'ghPath', 'ghImageFolder', 'ghToken'];
+    inputsToSave.forEach(id => {
+        document.getElementById(id).addEventListener('input', function(e) {
+            localStorage.setItem(id, e.target.value);
+        });
+    });
     
     document.getElementById('images').addEventListener('change', function(e) {
         const files = e.target.files;
