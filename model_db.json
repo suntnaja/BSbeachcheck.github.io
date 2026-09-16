@@ -16,5 +16,23 @@
     "H_mean": 120,
     "S_mean": 80,
     "V_mean": 202
+  },
+  {
+    "image_path": "images/1789548328559_IMG_1725.jpeg",
+    "timestamp": "2024-11-03T17:39",
+    "weather_status": "Clear",
+    "conditions_desc": "Partially cloudy",
+    "label": 1,
+    "env_cloudcover": 30,
+    "env_visibility": 9.9,
+    "env_humidity": 54.26,
+    "env_precip": 0,
+    "env_solarradiation": 42,
+    "R_mean": 223.22,
+    "G_mean": 183.22,
+    "B_mean": 144.16,
+    "H_mean": 15,
+    "S_mean": 90,
+    "V_mean": 223
   }
 ]
