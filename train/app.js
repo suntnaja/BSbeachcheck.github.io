@@ -1,26 +1,93 @@
 // ==========================================
-// 1. DATA INGESTION & PREPROCESSING
+// 1. DATA INGESTION & PREPROCESSING (Visual Crossing API)
 // ==========================================
-function getHistoricalWeather(timestamp) {
-    let hour = 12;
-    if (timestamp) {
-        hour = new Date(timestamp).getHours();
+const API_KEY = "XK3URSVCSGXCGR8N9FJR69Z4Q";
+const LAT = 13.29; // พิกัดละติจูด หาดบางแสน
+const LON = 100.91; // พิกัดลองจิจูด หาดบางแสน
+
+async function fetchHistoricalWeather(datetimeStr) {
+    try {
+        // แปลงวันที่จากฟอร์ม (เช่น 2023-10-01T14:30) เป็นรูปแบบที่ API ต้องการ
+        const dateObj = new Date(datetimeStr);
+        const dateStr = dateObj.toISOString().split('T')[0]; // ได้ "YYYY-MM-DD"
+        const hourStr = dateObj.getHours().toString().padStart(2, '0') + ":00:00"; // ได้ "HH:00:00"
+
+        // URL ดึงข้อมูลแบบ Timeline ระบุพิกัด วันที่ และขอข้อมูลรายชั่วโมง (include=hours)
+        const url = `https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/${LAT},${LON}/${dateStr}?unitGroup=metric&key=${API_KEY}&include=hours`;
+        
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("ไม่สามารถเชื่อมต่อ Weather API ได้");
+        
+        const data = await response.json();
+        
+        // ค้นหาข้อมูลสภาพอากาศของชั่วโมงนั้นๆ
+        const dayData = data.days[0];
+        const hourData = dayData.hours.find(h => h.datetime === hourStr) || dayData.hours[12]; // ถ้าหาไม่เจอใช้เที่ยงวันแทน
+        
+        // ดึงตัวแปรที่ส่งผลต่อสีท้องฟ้า
+        const cloudcover = hourData.cloudcover || 0;
+        const visibility = hourData.visibility || 0;
+        const humidity = hourData.humidity || 0;
+        const precip = hourData.precip || 0;
+        const solarradiation = hourData.solarradiation || 0;
+        const conditions = hourData.conditions || "Unknown";
+        
+        // สร้าง Logic จำแนกกลุ่มสภาพอากาศเบื้องต้น (Labeling)
+        // ถ้าเมฆเกิน 60% หรือมีฝนตก ให้เป็นกลุ่มฟ้าหม่น (0)
+        let status = "Clear";
+        let label = 1;
+        let icon = "☀️";
+        
+        if (cloudcover > 60 || precip > 0) {
+            status = "Gloomy";
+            label = 0;
+            icon = "☁️";
+        }
+        
+        return {
+            status: status,
+            label: label,
+            icon: icon,
+            cloudcover: cloudcover,
+            visibility: visibility,
+            humidity: humidity,
+            precip: precip,
+            solarradiation: solarradiation,
+            conditions_text: conditions
+        };
+    } catch (err) {
+        console.error(err);
+        // Fallback กรณี API ล่มหรือไม่คืนค่า
+        return { 
+            status: "Error", label: 1, icon: "❓", 
+            cloudcover: 0, visibility: 0, humidity: 0, precip: 0, solarradiation: 0, conditions_text: "API Error" 
+        };
     }
-    if (hour >= 15 || hour < 6) {
-        return { weather_status: "Gloomy", label: 0 };
-    } else {
-        return { weather_status: "Clear", label: 1 };
+}
+
+function rgbToHsv(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    let max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h, s, v = max;
+    let d = max - min;
+    s = max === 0 ? 0 : d / max;
+    if (max == min) { h = 0; } else {
+        switch (max) {
+            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+            case g: h = (b - r) / d + 2; break;
+            case b: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
     }
+    return [Math.round(h * 179), Math.round(s * 255), Math.round(v * 255)];
 }
 
 // ==========================================
 // 2. FEATURES (สกัดข้อมูลสีท้องฟ้า)
 // ==========================================
 function extractSkyColors(file) {
-    return new Promise((resolve, reject) => { // ✅ เพิ่ม reject สำหรับกรณีเกิด Error
+    return new Promise((resolve, reject) => {
         const img = new Image();
-        
-        // ✅ เปลี่ยนมาใช้ URL.createObjectURL เร็วและประหยัดแรมกว่า FileReader มหาศาล
         const objectUrl = URL.createObjectURL(file);
 
         img.onload = function() {
@@ -42,23 +109,21 @@ function extractSkyColors(file) {
                 let rMean = rSum / count;
                 let gMean = gSum / count;
                 let bMean = bSum / count;
+                let [hMean, sMean, vMean] = rgbToHsv(rMean, gMean, bMean);
 
                 resolve({
                     R_mean: parseFloat(rMean.toFixed(2)),
                     G_mean: parseFloat(gMean.toFixed(2)),
                     B_mean: parseFloat(bMean.toFixed(2)),
-                    previewUrl: objectUrl // ส่ง URL ชั่วคราวไปแสดงภาพพรีวิว
+                    H_mean: hMean, S_mean: sMean, V_mean: vMean,
+                    previewUrl: objectUrl
                 });
-            } catch (err) {
-                reject(err);
-            }
+            } catch (err) { reject(err); }
         };
 
-        // ✅ ดักจับ Error ถ้าเบราว์เซอร์อ่านภาพไม่ได้ (ป้องกันระบบค้าง)
         img.onerror = function() {
-            reject(new Error(`ไม่สามารถอ่านไฟล์ภาพ ${file.name} ได้ (อาจเป็นไฟล์ที่ไม่รองรับ)`));
+            reject(new Error(`ไม่สามารถอ่านไฟล์ภาพ ${file.name} ได้`));
         };
-
         img.src = objectUrl;
     });
 }
@@ -103,9 +168,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <input type="datetime-local" class="form-control datetime-input" data-index="${index}" style="max-width: 45%;" required>
                 </div>`;
             });
-        } else { 
-            section.style.display = 'none'; 
-        }
+        } else { section.style.display = 'none'; }
     });
 
     document.getElementById('trainForm').addEventListener('submit', async function(e) {
@@ -114,7 +177,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const inputs = document.querySelectorAll('.datetime-input');
         const imgFolder = document.getElementById('ghImageFolder').value.replace(/\/$/, ""); 
         
-        document.getElementById('loadingText').innerText = "กำลังสกัดค่าสีและสร้างตารางผลลัพธ์...";
+        document.getElementById('loadingText').innerText = "กำลังสกัดค่าสี และดึงข้อมูลจาก Visual Crossing API...";
         document.getElementById('loading').style.display = 'block';
         document.getElementById('resultSection').style.display = 'none';
 
@@ -124,27 +187,34 @@ document.addEventListener("DOMContentLoaded", () => {
         const tbody = document.getElementById('resultTableBody');
         tbody.innerHTML = ''; 
 
-        // ✅ ห่อหุ้มการทำงานด้วย try...catch เพื่อป้องกันระบบค้างหากมีภาพพัง
         try {
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
-                const color = await extractSkyColors(file);
                 const inputTime = inputs[i].value; 
-                const weatherInfo = getHistoricalWeather(inputTime);
+                
+                // สกัดสี และ ดึง API ขนานกันเพื่อความรวดเร็ว
+                const [color, weatherInfo] = await Promise.all([
+                    extractSkyColors(file),
+                    fetchHistoricalWeather(inputTime)
+                ]);
                 
                 const uniqueFilename = `${Date.now()}_${file.name}`;
                 const fullImagePath = `${imgFolder}/${uniqueFilename}`; 
 
-                const weatherIcon = weatherInfo.label === 1 ? "☀️" : "☁️";
                 const badgeClass = weatherInfo.label === 1 ? "bg-warning text-dark" : "bg-secondary";
                 const badgeText = weatherInfo.label === 1 ? "กลุ่ม 1 (ฟ้าโปร่ง)" : "กลุ่ม 0 (ฟ้าหม่น)";
 
+                // วาดแถวตาราง เพิ่มการแสดงผลข้อมูลอากาศที่ดึงมา
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td><img src="${color.previewUrl}" class="thumbnail-img"></td>
                     <td>
-                        <div class="fw-bold text-muted" style="font-size: 0.9em;">${inputTime.replace('T', ' ')}</div>
-                        <div>${weatherInfo.weather_status} ${weatherIcon}</div>
+                        <div class="fw-bold text-muted" style="font-size: 0.85em;">${inputTime.replace('T', ' ')}</div>
+                        <div class="fw-bold mt-1">${weatherInfo.status} ${weatherInfo.icon}</div>
+                        <div style="font-size: 0.8em; color: #666;">
+                            เมฆ: ${weatherInfo.cloudcover}% | ชื้น: ${weatherInfo.humidity}%<br>
+                            ทัศนวิสัย: ${weatherInfo.visibility}km | รังสี: ${weatherInfo.solarradiation}
+                        </div>
                     </td>
                     <td>
                         <span style="color: #d9534f; font-weight: bold;">R: ${color.R_mean}</span><br>
@@ -155,14 +225,24 @@ document.addEventListener("DOMContentLoaded", () => {
                 `;
                 tbody.appendChild(row);
 
+                // บันทึกตัวแปรทั้งหมดลงฐานข้อมูล
                 globalModel.records.push({
                     image_path: fullImagePath,
                     timestamp: inputTime,
-                    weather_status: weatherInfo.weather_status,
+                    weather_status: weatherInfo.status,
+                    conditions_desc: weatherInfo.conditions_text,
                     label: weatherInfo.label,
+                    env_cloudcover: weatherInfo.cloudcover,
+                    env_visibility: weatherInfo.visibility,
+                    env_humidity: weatherInfo.humidity,
+                    env_precip: weatherInfo.precip,
+                    env_solarradiation: weatherInfo.solarradiation,
                     R_mean: color.R_mean,
                     G_mean: color.G_mean,
-                    B_mean: color.B_mean
+                    B_mean: color.B_mean,
+                    H_mean: color.H_mean,
+                    S_mean: color.S_mean,
+                    V_mean: color.V_mean
                 });
 
                 globalModel.pendingUploads.push({
@@ -171,13 +251,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 });
             }
             
-            // เมื่อเสร็จสิ้นทุกลูป ให้แสดงผลลัพธ์
             document.getElementById('loading').style.display = 'none';
-            document.getElementById('accText').innerText = `✅ จัดกลุ่มภาพเสร็จสิ้น! (วิเคราะห์ไป ${files.length} ภาพ)`;
+            document.getElementById('accText').innerText = `✅ ดึงข้อมูลสำเร็จ! (วิเคราะห์ไป ${files.length} ภาพ)`;
             document.getElementById('resultSection').style.display = 'block';
 
         } catch (error) {
-            // ✅ ดักจับ Error และแจ้งผู้ใช้เพื่อไม่ให้โปรแกรมค้าง
             document.getElementById('loading').style.display = 'none';
             alert(`เกิดข้อผิดพลาด: ${error.message}`);
         }
