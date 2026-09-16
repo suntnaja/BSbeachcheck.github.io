@@ -81,8 +81,10 @@ async function fetchHistoricalWeather(datetimeStr) {
             conditions_text: err.message 
         };
     }
+    
+}
 
-    function rgbToHsv(r, g, b) {
+function rgbToHsv(r, g, b) {
     r /= 255; g /= 255; b /= 255;
     let max = Math.max(r, g, b), min = Math.min(r, g, b);
     let h, s, v = max;
@@ -97,8 +99,6 @@ async function fetchHistoricalWeather(datetimeStr) {
         h /= 6;
     }
     return [Math.round(h * 179), Math.round(s * 255), Math.round(v * 255)];
-    }
-    
 }
 
 // ==========================================
