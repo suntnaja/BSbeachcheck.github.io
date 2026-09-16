@@ -1,88 +1,86 @@
 // ==========================================
-// 1. DATA INGESTION & PREPROCESSING (OpenWeatherMap API)
+// 1. DATA INGESTION & PREPROCESSING (dmt API)
 // ==========================================
-const API_KEY = "bd5e378503939ddaee76f12ad7a97608";
+const TMD_ACCESS_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6ImNlOTM5OWFjMWY3YzBhYjNjNWMxZTY2YjY4NDFhYzMwODY2ZGQ4ZjZlODg4YWM1NWNjNmI4NzRlZjdjMWI0NGQ1ZGZjOWYwYWM4YzQxNmU5In0.eyJhdWQiOiIyIiwianRpIjoiY2U5Mzk5YWMxZjdjMGFiM2M1YzFlNjZiNjg0MWFjMzA4NjZkZDhmNmU4ODhhYzU1Y2M2Yjg3NGVmN2MxYjQ0ZDVkZmM5ZjBhYzhjNDE2ZTkiLCJpYXQiOjE3ODk1ODMwMTAsIm5iZiI6MTc4OTU4MzAxMCwiZXhwIjoxODIxMTE5MDEwLCJzdWIiOiI1OTI1Iiwic2NvcGVzIjpbXX0.g-TIwT5Ya8ALGLKzFWl9n5CwnHn6LTbpU5qb4kYlDzNeiRBVuaKWwF7faNMP9Zsv-UAip9Fb6FoNbNcj3fWna_biA2NIbrupfOvWi_ScZ2rm0WF-C_oOHNOJ_JevoYVebXvbKsSow1OFt4Eh_4JVPHyLyp0FfG2-Wdk_2qS4omRm6ag1uO3uNI8RyIhaFSw6Zlvc0w7roWPgicecBAItcFK8y7zq6GlYX0i4uxMm443704NE2qzIttPWmWBx0DPuGWLCOg0nhUsFCPI8GK4ZTLRJjRptINLvXbKRFlVYdyJzm22w-PeE8ylGwBiVV133zyQUqH_prp1pumdNwBr_IWIa8AXtWyp7g-RbmQg5cMqxG0V75uO4QeGMuX93ZEdnr4-ZbkRf0SWW2XbovZg7paGqla7tZYh-aYY9VULT1sB0_aBuEIanpDU1dD5Y3bzVoA9uIQwYF3eHv7j_jMIPAH0mGpERvYPIV_Bm03QM_WbG_auazLjS58bnJSyNV8XuhWJV5Z5nU6crt5YV5LhKIamuvMvDcpg3bvwdHzqKcWp-RgGSW-zT8fbQXHQIlp8p56zsnEFxTKSYU984iE0CnuahpHKn15d_d51Rxolhkotxlx_pEZWvA7Px5BMO_hJ0Kdot3mgotYYTiNXChKbIhnqBBfyvFXf-CTAGVDUIwHM";
 const LAT = 13.29; // พิกัดละติจูด หาดบางแสน
 const LON = 100.91; // พิกัดลองจิจูด หาดบางแสน
+
+// แผนผังการแปลรหัสสภาพอากาศ (cond) เป็นสถานะและกลุ่ม
+const weatherConditionMap = {
+    1: { text: "แจ่มใส (Clear)", label: 1, icon: "☀️" },
+    2: { text: "เมฆบางส่วน (Partly cloudy)", label: 1, icon: "🌤️" },
+    3: { text: "เมฆเป็นส่วนมาก (Cloudy)", label: 0, icon: "⛅" },
+    4: { text: "มีเมฆมาก (Overcast)", label: 0, icon: "☁️" },
+    5: { text: "ฝนตกเล็กน้อย (Light rain)", label: 0, icon: "🌧️" },
+    6: { text: "ฝนปานกลาง (Moderate rain)", label: 0, icon: "🌧️" },
+    7: { text: "ฝนตกหนัก (Heavy rain)", label: 0, icon: "⛈️" },
+    8: { text: "ฝนฟ้าคะนอง (Thunderstorm)", label: 0, icon: "⛈️" },
+    9: { text: "อากาศหนาวจัด (Very cold)", label: 1, icon: "❄️" },
+    10: { text: "อากาศหนาว (Cold)", label: 1, icon: "❄️" },
+    11: { text: "อากาศเย็น (Cool)", label: 1, icon: "🍃" },
+    12: { text: "อากาศร้อนจัด (Very hot)", label: 1, icon: "🔥" }
+};
 
 async function fetchHistoricalWeather(datetimeStr) {
     try {
         const dateObj = new Date(datetimeStr);
-        const unixTime = Math.floor(dateObj.getTime() / 1000);
+        // แปลงวันที่เป็นรูปแบบ YYYY-MM-DD
+        const dateStr = dateObj.toISOString().split('T')[0];
+        const hour = dateObj.getHours();
 
-        const url = `https://api.openweathermap.org/data/3.0/onecall/timemachine?lat=${LAT}&lon=${LON}&dt=${unixTime}&appid=${API_KEY}&units=metric`;
-        
-        const response = await fetch(url);
-        if (!response.ok) throw new Error("ไม่สามารถเชื่อมต่อ OpenWeatherMap API ได้");
-        
-        const json = await response.json();
-        const data = json.data[0]; 
-        
-        const cloudcover = data.clouds || 0; 
-        const visibility = (data.visibility || 0) / 1000; 
-        const humidity = data.humidity || 0;
-        
-        let precip = 0;
-        if (data.rain && data.rain['1h']) {
-            precip = data.rain['1h'];
-        }
+        // 1. เตรียม URL สำหรับดึงข้อมูลรายชั่วโมง และ รายวัน
+        const hourlyUrl = `https://data.tmd.go.th/nwpapi/v1/forecast/location/hourly/at?lat=${LAT}&lon=${LON}&fields=tc,rh,rain,cloudlow,cloudmed,cloudhigh,cond&date=${dateStr}&hour=${hour}&duration=1`;
+        const dailyUrl = `https://data.tmd.go.th/nwpapi/v1/forecast/location/daily/at?lat=${LAT}&lon=${LON}&fields=swdown&date=${dateStr}&duration=1`;
 
-        const conditionsMain = data.weather && data.weather.length > 0 ? data.weather[0].main : "Unknown";
-        const conditionsDesc = data.weather && data.weather.length > 0 ? data.weather[0].description : "Unknown";
+        const requestOptions = {
+            method: "GET",
+            headers: {
+                "accept": "application/json",
+                "authorization": `Bearer ${TMD_ACCESS_TOKEN}`
+            }
+        };
 
-        let status = "Clear";
-        let label = 1;
-        let icon = "☀️";
-        
-        if (precip > 0 || conditionsMain === "Rain" || conditionsMain === "Thunderstorm") {
-            status = "Gloomy";
-            label = 0;
-            icon = "🌧️";
-        } else if (cloudcover > 70 && conditionsMain === "Clouds") {
-            status = "Gloomy";
-            label = 0;
-            icon = "☁️";
-        } else {
-            status = "Clear";
-            label = 1;
-            icon = "☀️";
-        }
-        
+        // 2. ดึงข้อมูล 2 เส้นทางพร้อมกัน (Parallel Fetch)
+        const [hourlyRes, dailyRes] = await Promise.all([
+            fetch(hourlyUrl, requestOptions),
+            fetch(dailyUrl, requestOptions)
+        ]);
+
+        if (!hourlyRes.ok || !dailyRes.ok) throw new Error("ไม่สามารถเชื่อมต่อ TMD NWP API ได้");
+
+        const hourlyData = await hourlyRes.json();
+        const dailyData = await dailyRes.json();
+
+        // 3. สกัดข้อมูลจากโครงสร้าง JSON ของกรมอุตุฯ
+        // คาดหวังโครงสร้าง: WeatherForecasts[0].forecasts[0].data
+        const hData = hourlyData.WeatherForecasts[0].forecasts[0].data;
+        const dData = dailyData.WeatherForecasts[0].forecasts[0].data;
+
+        // ดึงรหัสสภาพอากาศ (cond) ถ้าไม่มีค่าให้ยึด 1 (แจ่มใส) เป็นค่าเริ่มต้น
+        const condCode = hData.cond || 1;
+        const weather = weatherConditionMap[condCode] || weatherConditionMap[1];
+
         return {
-            status: status,
-            label: label,
-            icon: icon,
-            cloudcover: cloudcover,
-            visibility: visibility,
-            humidity: humidity,
-            precip: precip,
-            solarradiation: 0, 
-            conditions_text: conditionsDesc
+            status: weather.text,
+            label: weather.label,
+            icon: weather.icon,
+            tc: hData.tc || 0,
+            rh: hData.rh || 0,
+            precip: hData.rain || 0,
+            cloudlow: hData.cloudlow || 0,
+            cloudmed: hData.cloudmed || 0,
+            cloudhigh: hData.cloudhigh || 0,
+            solarradiation: dData.swdown || 0,
+            conditions_text: weather.text
         };
     } catch (err) {
-        console.error(err);
+        console.error("TMD API Error:", err);
         return { 
             status: "Error", label: 1, icon: "❓", 
-            cloudcover: 0, visibility: 0, humidity: 0, precip: 0, solarradiation: 0, conditions_text: "API Error" 
+            tc: 0, rh: 0, precip: 0, cloudlow: 0, cloudmed: 0, cloudhigh: 0, solarradiation: 0, 
+            conditions_text: err.message 
         };
     }
-}
-
-function rgbToHsv(r, g, b) {
-    r /= 255; g /= 255; b /= 255;
-    let max = Math.max(r, g, b), min = Math.min(r, g, b);
-    let h, s, v = max;
-    let d = max - min;
-    s = max === 0 ? 0 : d / max;
-    if (max == min) { h = 0; } else {
-        switch (max) {
-            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-            case g: h = (b - r) / d + 2; break;
-            case b: h = (r - g) / d + 4; break;
-        }
-        h /= 6;
-    }
-    return [Math.round(h * 179), Math.round(s * 255), Math.round(v * 255)];
 }
 
 // ==========================================
@@ -198,35 +196,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // ------------------------------------------
     // 4.3 เมื่อกดปุ่ม Train (สกัดสี + ดึงสภาพอากาศ + วาดตาราง)
     // ------------------------------------------
-    document.getElementById('trainForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const files = document.getElementById('images').files;
-        const inputs = document.querySelectorAll('.datetime-input');
-        const imgFolder = document.getElementById('ghImageFolder').value.replace(/\/$/, ""); 
-        
-        document.getElementById('loadingText').innerText = "กำลังสกัดค่าสี และดึงข้อมูลจาก OpenWeatherMap API...";
-        document.getElementById('loading').style.display = 'block';
-        document.getElementById('resultSection').style.display = 'none';
-
-        globalModel.records = [];
-        globalModel.pendingUploads = [];
-
-        const tbody = document.getElementById('resultTableBody');
-        tbody.innerHTML = ''; 
-
-        try {
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                const inputTime = inputs[i].value; 
+    // (ในส่วนของ document.getElementById('trainForm').addEventListener('submit', ...) )
                 
-                const [color, weatherInfo] = await Promise.all([
-                    extractSkyColors(file),
-                    fetchHistoricalWeather(inputTime)
-                ]);
-                
-                const uniqueFilename = `${Date.now()}_${file.name}`;
-                const fullImagePath = `${imgFolder}/${uniqueFilename}`; 
-
                 const badgeClass = weatherInfo.label === 1 ? "bg-warning text-dark" : "bg-secondary";
                 const badgeText = weatherInfo.label === 1 ? "กลุ่ม 1 (ฟ้าโปร่ง)" : "กลุ่ม 0 (ฟ้าหม่น)";
 
@@ -235,10 +206,11 @@ document.addEventListener("DOMContentLoaded", () => {
                     <td><img src="${color.previewUrl}" class="thumbnail-img"></td>
                     <td>
                         <div class="fw-bold text-muted" style="font-size: 0.85em;">${inputTime.replace('T', ' ')}</div>
-                        <div class="fw-bold mt-1">${weatherInfo.status} ${weatherInfo.icon}</div>
-                        <div style="font-size: 0.8em; color: #666;">
-                            เมฆ: ${weatherInfo.cloudcover}% | ชื้น: ${weatherInfo.humidity}%<br>
-                            ทัศนวิสัย: ${weatherInfo.visibility}km
+                        <div class="fw-bold mt-1 text-primary">${weatherInfo.status} ${weatherInfo.icon}</div>
+                        <div style="font-size: 0.8em; color: #555; margin-top: 4px;">
+                            🌡️ อุณหภูมิ: ${weatherInfo.tc}°C | 💧 ความชื้น: ${weatherInfo.rh}%<br>
+                            🌧️ ปริมาณฝน: ${weatherInfo.precip} mm | ☀️ รังสีคลื่นสั้น: ${weatherInfo.solarradiation}<br>
+                            ☁️ เมฆ (ต่ำ/กลาง/สูง): ${weatherInfo.cloudlow}% / ${weatherInfo.cloudmed}% / ${weatherInfo.cloudhigh}%
                         </div>
                     </td>
                     <td>
@@ -250,17 +222,19 @@ document.addEventListener("DOMContentLoaded", () => {
                 `;
                 tbody.appendChild(row);
 
+                // อัปเดตข้อมูลที่จะส่งไปเก็บใน model_db.json
                 globalModel.records.push({
                     image_path: fullImagePath,
                     timestamp: inputTime,
                     weather_status: weatherInfo.status,
-                    conditions_desc: weatherInfo.conditions_text,
                     label: weatherInfo.label,
-                    env_cloudcover: weatherInfo.cloudcover,
-                    env_visibility: weatherInfo.visibility,
-                    env_humidity: weatherInfo.humidity,
-                    env_precip: weatherInfo.precip,
-                    env_solarradiation: weatherInfo.solarradiation,
+                    env_tc: weatherInfo.tc,
+                    env_rh: weatherInfo.rh,
+                    env_rain: weatherInfo.precip,
+                    env_cloudlow: weatherInfo.cloudlow,
+                    env_cloudmed: weatherInfo.cloudmed,
+                    env_cloudhigh: weatherInfo.cloudhigh,
+                    env_swdown: weatherInfo.solarradiation,
                     R_mean: color.R_mean,
                     G_mean: color.G_mean,
                     B_mean: color.B_mean,
@@ -268,22 +242,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     S_mean: color.S_mean,
                     V_mean: color.V_mean
                 });
-
-                globalModel.pendingUploads.push({
-                    fileData: file,
-                    uploadPath: fullImagePath
-                });
-            }
-            
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('accText').innerText = `✅ ดึงข้อมูลสำเร็จ! (วิเคราะห์ไป ${files.length} ภาพ)`;
-            document.getElementById('resultSection').style.display = 'block';
-
-        } catch (error) {
-            document.getElementById('loading').style.display = 'none';
-            alert(`เกิดข้อผิดพลาด: ${error.message}`);
-        }
-    });
 
     // ------------------------------------------
     // 4.4 เมื่อกด Save ขึ้น GitHub
