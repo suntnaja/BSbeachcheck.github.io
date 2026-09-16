@@ -24,16 +24,17 @@ const weatherConditionMap = {
 async function fetchHistoricalWeather(datetimeStr) {
     try {
         const dateObj = new Date(datetimeStr);
-        // แปลงวันที่เป็นรูปแบบ YYYY-MM-DD
         const dateStr = dateObj.toISOString().split('T')[0];
         const hour = dateObj.getHours();
 
-        // 1. เตรียม URL สำหรับดึงข้อมูลรายชั่วโมง และ รายวัน
+        // 🌟 1. ใช้ CORS Proxy เพื่อเป็นสื่อกลางทะลุการบล็อกของเบราว์เซอร์
         const proxy = "https://corsproxy.io/?";
-        
+
+        // URL ต้นฉบับ
         const rawHourlyUrl = `https://data.tmd.go.th/nwpapi/v1/forecast/location/hourly/at?lat=${LAT}&lon=${LON}&fields=tc,rh,rain,cloudlow,cloudmed,cloudhigh,cond&date=${dateStr}&hour=${hour}&duration=1`;
         const rawDailyUrl = `https://data.tmd.go.th/nwpapi/v1/forecast/location/daily/at?lat=${LAT}&lon=${LON}&fields=swdown&date=${dateStr}&duration=1`;
 
+        // นำ URL มาเข้ารหัสต่อท้าย Proxy
         const hourlyUrl = proxy + encodeURIComponent(rawHourlyUrl);
         const dailyUrl = proxy + encodeURIComponent(rawDailyUrl);
 
@@ -45,30 +46,32 @@ async function fetchHistoricalWeather(datetimeStr) {
             }
         };
 
-        // 2. ดึงข้อมูล 2 เส้นทางพร้อมกัน (Parallel Fetch)
         const [hourlyRes, dailyRes] = await Promise.all([
             fetch(hourlyUrl, requestOptions),
             fetch(dailyUrl, requestOptions)
         ]);
 
+        // 🌟 2. ดักจับ Error แบบเจาะลึก ถ้าพัง จะแจ้งเหตุผลจากเซิร์ฟเวอร์โดยตรง
         if (!hourlyRes.ok) {
             const errText = await hourlyRes.text();
-            throw new Error(`TMD รายชั่วโมงปฏิเสธการเชื่อมต่อ (Status ${hourlyRes.status}): ${errText}`);
+            throw new Error(`รายชั่วโมงล้มเหลว (Status ${hourlyRes.status}): ${errText}`);
         }
         if (!dailyRes.ok) {
             const errText = await dailyRes.text();
-            throw new Error(`TMD รายวันปฏิเสธการเชื่อมต่อ (Status ${dailyRes.status}): ${errText}`);
+            throw new Error(`รายวันล้มเหลว (Status ${dailyRes.status}): ${errText}`);
         }
 
         const hourlyData = await hourlyRes.json();
         const dailyData = await dailyRes.json();
 
-        // 3. สกัดข้อมูลจากโครงสร้าง JSON ของกรมอุตุฯ
-        // คาดหวังโครงสร้าง: WeatherForecasts[0].forecasts[0].data
+        // 🌟 3. ป้องกันบัคกรณีที่กรมอุตุฯ ส่งข้อมูลมาเป็นค่าว่าง (เช่น การใส่วันที่ในอดีต)
+        if (!hourlyData.WeatherForecasts || hourlyData.WeatherForecasts.length === 0) {
+            throw new Error("กรมอุตุฯ ไม่มีข้อมูลของวันนี้ (โปรดหลีกเลี่ยงการเลือกวันที่ในอดีต)");
+        }
+
         const hData = hourlyData.WeatherForecasts[0].forecasts[0].data;
         const dData = dailyData.WeatherForecasts[0].forecasts[0].data;
 
-        // ดึงรหัสสภาพอากาศ (cond) ถ้าไม่มีค่าให้ยึด 1 (แจ่มใส) เป็นค่าเริ่มต้น
         const condCode = hData.cond || 1;
         const weather = weatherConditionMap[condCode] || weatherConditionMap[1];
 
@@ -87,13 +90,13 @@ async function fetchHistoricalWeather(datetimeStr) {
         };
     } catch (err) {
         console.error("TMD API Error:", err);
+        // จะนำข้อความ Error ที่แท้จริงไปแสดงผลในตาราง HTML ตรงๆ เลย
         return { 
             status: "Error", label: 1, icon: "❓", 
             tc: 0, rh: 0, precip: 0, cloudlow: 0, cloudmed: 0, cloudhigh: 0, solarradiation: 0, 
             conditions_text: err.message 
         };
     }
-    
 }
 
 function rgbToHsv(r, g, b) {
