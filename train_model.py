@@ -9,82 +9,95 @@ from sklearn.metrics import accuracy_score, classification_report, confusion_mat
 def load_and_prepare_data(json_file_path):
     print(f"กำลังอ่านข้อมูลจากไฟล์: {json_file_path}...")
     
-    # 1. โหลดข้อมูลจากไฟล์ JSON
     with open(json_file_path, 'r', encoding='utf-8') as file:
         data = json.load(file)
         
     df = pd.DataFrame(data)
     print(f"จำนวนข้อมูลทั้งหมดที่โหลดได้: {len(df)} รายการ")
     
-    # 2. ตรวจสอบและทำความสะอาดข้อมูล (Data Cleaning)
-    # คัดเฉพาะคอลัมน์ที่จำเป็นสำหรับการ Train
-    required_columns = ['R_mean', 'G_mean', 'B_mean', 'H_mean', 'S_mean', 'V_mean', 'label']
+    # 🌟 ปรับปรุง: เพิ่มคอลัมน์สภาพอากาศใหม่จาก TMD API เข้าไปในระบบ
+    required_columns = [
+        'R_mean', 'G_mean', 'B_mean', 'H_mean', 'S_mean', 'V_mean', 
+        'env_tc', 'env_rh', 'env_rain', 'env_cloudlow', 'env_cloudmed', 'env_cloudhigh', 'env_swdown',
+        'label'
+    ]
     
-    # กรองเอาเฉพาะข้อมูลที่มีคอลัมน์ครบถ้วน
+    # เช็คว่ามีคอลัมน์ครบไหม (ป้องกัน Error หากมีข้อมูลเก่าจากเวอร์ชันก่อนปนอยู่)
+    missing_cols = [col for col in required_columns if col not in df.columns]
+    if missing_cols:
+        print(f"⚠️ คำเตือน: ข้อมูลเก่าไม่มีคอลัมน์ต่อไปนี้: {missing_cols}")
+        print("ระบบจะเติมค่า 0 ลงไปชั่วคราวเพื่อให้โมเดลทำงานต่อได้")
+        for col in missing_cols:
+            df[col] = 0
+            
     df_clean = df.dropna(subset=required_columns).copy()
-    
     return df_clean
 
 def train_and_evaluate(df):
-    print("\nเริ่มกระบวนการ Train โมเดล...")
+    print("\nเริ่มกระบวนการ Train โมเดลด้วยข้อมูลสี + ข้อมูลอุตุฯ...")
     
-    # 3. กำหนด Features (X) และ Target (y)
-    X = df[['R_mean', 'G_mean', 'B_mean', 'H_mean', 'S_mean', 'V_mean']]
+    # 🌟 ปรับปรุง: นำข้อมูลสภาพอากาศมาร่วมสอนโมเดล (Features)
+    features = [
+        'R_mean', 'G_mean', 'B_mean', 'H_mean', 'S_mean', 'V_mean',
+        'env_tc', 'env_rh', 'env_rain', 'env_cloudlow', 'env_cloudmed', 'env_cloudhigh', 'env_swdown'
+    ]
+    
+    X = df[features]
     y = df['label']
     
-    # 4. แบ่งข้อมูลเป็นชุด Train (80%) และ Test (20%)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+    # กรณีที่ข้อมูลยังน้อยเกินไปจนไม่สามารถแบ่ง Stratify ได้ ให้ยกเลิก Stratify ชั่วคราว
+    try:
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+    except ValueError:
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
     print(f"แบ่งข้อมูลสำหรับ Train: {len(X_train)} รายการ")
     print(f"แบ่งข้อมูลสำหรับ Test: {len(X_test)} รายการ\n")
     
-    # 5. สร้างและ Train โมเดล Random Forest
     model = RandomForestClassifier(n_estimators=100, max_depth=10, random_state=42)
     model.fit(X_train, y_train)
     
-    # 6. ประเมินความแม่นยำ (Evaluation)
+    # ประเมินผล
     print("="*40)
     print("🎯 ผลการประเมินความแม่นยำ (Evaluation Results)")
     print("="*40)
     
     y_pred = model.predict(X_test)
     accuracy = accuracy_score(y_test, y_pred)
-    
     print(f"ความแม่นยำรวม (Accuracy): {accuracy * 100:.2f}%\n")
     
-    print("รายละเอียดการแยกคลาส (Classification Report):")
-    # ป้องกัน Error กรณีที่ข้อมูลทดสอบมีแค่คลาสเดียว (เช่น มีแต่รูปฟ้าใส)
     try:
-        target_names = ["Gloomy (0)", "Clear (1)"]
-        print(classification_report(y_test, y_pred, target_names=target_names))
+        print("รายละเอียดการแยกคลาส (Classification Report):")
+        print(classification_report(y_test, y_pred, target_names=["Gloomy (0)", "Clear (1)"]))
     except Exception:
         print(classification_report(y_test, y_pred))
-        
-    print("เมทริกซ์ความสับสน (Confusion Matrix):")
-    print(confusion_matrix(y_test, y_pred))
-    print("="*40)
+
+    # 🌟 ฟีเจอร์แถม: จัดอันดับความสำคัญของตัวแปร (Feature Importance)
+    print("\n📊 ตัวแปรที่มีผลต่อการตัดสินใจของโมเดลมากที่สุด:")
+    importances = model.feature_importances_
+    feature_imp_df = pd.DataFrame({'Feature': features, 'Importance': importances})
+    feature_imp_df = feature_imp_df.sort_values(by='Importance', ascending=False)
     
+    for index, row in feature_imp_df.iterrows():
+        print(f" - {row['Feature']}: {row['Importance']:.4f}")
+        
+    print("\n" + "="*40)
     return model
 
 if __name__ == "__main__":
     json_path = 'model_db.json'
     
     try:
-        # เตรียมข้อมูล
         df_dataset = load_and_prepare_data(json_path)
         
-        # ตรวจสอบว่ามีข้อมูลเพียงพอหรือไม่ (ควรมีอย่างน้อยสัก 20-30 รูปสำหรับการเทสต์)
         if len(df_dataset) < 10:
             print("⚠️ ข้อมูลใน model_db.json มีน้อยเกินไป (น้อยกว่า 10 รูป) แนะนำให้เก็บรูปเพิ่มก่อนทำการ Train เพื่อป้องกันโมเดลเพี้ยน")
         else:
-            # Train โมเดล
             trained_model = train_and_evaluate(df_dataset)
-            
-            # 7. บันทึกโมเดลเก็บไว้ใช้งาน (Save Model)
             model_filename = 'sky_weather_rf_model.pkl'
             joblib.dump(trained_model, model_filename)
-            print(f"\n✅ บันทึกโมเดลเสร็จสมบูรณ์! ไฟล์ถูกเก็บไว้ที่: {model_filename}")
-            print("คุณสามารถนำไฟล์นี้ไปสร้าง API เพื่อทำนายสภาพอากาศจากรูปภาพใหม่ได้เลย")
+            
+            print(f"✅ บันทึกโมเดลเสร็จสมบูรณ์! ไฟล์ถูกเก็บไว้ที่: {model_filename}")
             
     except FileNotFoundError:
         print(f"❌ ไม่พบไฟล์ '{json_path}' กรุณาตรวจสอบว่ามีไฟล์นี้อยู่ในโฟลเดอร์เดียวกับสคริปต์หรือไม่")
