@@ -29,8 +29,13 @@ async function fetchHistoricalWeather(datetimeStr) {
         const hour = dateObj.getHours();
 
         // 1. เตรียม URL สำหรับดึงข้อมูลรายชั่วโมง และ รายวัน
-        const hourlyUrl = `https://data.tmd.go.th/nwpapi/v1/forecast/location/hourly/at?lat=${LAT}&lon=${LON}&fields=tc,rh,rain,cloudlow,cloudmed,cloudhigh,cond&date=${dateStr}&hour=${hour}&duration=1`;
-        const dailyUrl = `https://data.tmd.go.th/nwpapi/v1/forecast/location/daily/at?lat=${LAT}&lon=${LON}&fields=swdown&date=${dateStr}&duration=1`;
+        const proxy = "https://corsproxy.io/?";
+        
+        const rawHourlyUrl = `https://data.tmd.go.th/nwpapi/v1/forecast/location/hourly/at?lat=${LAT}&lon=${LON}&fields=tc,rh,rain,cloudlow,cloudmed,cloudhigh,cond&date=${dateStr}&hour=${hour}&duration=1`;
+        const rawDailyUrl = `https://data.tmd.go.th/nwpapi/v1/forecast/location/daily/at?lat=${LAT}&lon=${LON}&fields=swdown&date=${dateStr}&duration=1`;
+
+        const hourlyUrl = proxy + encodeURIComponent(rawHourlyUrl);
+        const dailyUrl = proxy + encodeURIComponent(rawDailyUrl);
 
         const requestOptions = {
             method: "GET",
