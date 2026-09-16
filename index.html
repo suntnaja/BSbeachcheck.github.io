@@ -281,7 +281,7 @@
                 <h1>Bangsaen Sky<br>Predictor</h1>
             </div>
 
-            <form id="predictForm" onsubmit="handlePredict(event)">
+            <form id="predictForm" onsubmit="handlePredictJS(event)">
                 <div class="form-group">
                     <label for="datetimeInput"><i class="fa-regular fa-calendar-days"></i> เลือกวันและเวลาที่ต้องการพยากรณ์</label>
                     <input type="datetime-local" id="datetimeInput" class="form-control" required>
@@ -294,7 +294,7 @@
         </div>
 
         <div style="font-size: 0.75rem; color: var(--text-sub); text-align: center; margin-top: 20px;">
-            ระบบประมวลผลด้วย Machine Learning Model
+            ระบบประมวลผลด้วย JavaScript Pure Engine
         </div>
     </div>
 
@@ -349,6 +349,28 @@
 </div>
 
 <script>
+    // Mock Database: คลังภาพถ่ายท้องฟ้าจริง (Image Retrieval Database)
+    const IMAGE_DATABASE = [
+        {
+            id: 1,
+            sky_label: "clear_sky",
+            avg_rgb: [130, 200, 230],
+            image_url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80"
+        },
+        {
+            id: 2,
+            sky_label: "sunset",
+            avg_rgb: [240, 120, 70],
+            image_url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80"
+        },
+        {
+            id: 3,
+            sky_label: "night",
+            avg_rgb: [30, 40, 60],
+            image_url: "https://images.unsplash.com/photo-1509114397022-ed747cca3f65?auto=format&fit=crop&w=800&q=80"
+        }
+    ];
+
     // ตั้งค่าเวลาปัจจุบันลงใน Input ช่อง datetime-local อัตโนมัติเมื่อเปิดหน้าเว็บ
     window.onload = function() {
         const now = new Date();
@@ -356,64 +378,93 @@
         document.getElementById('datetimeInput').value = now.toISOString().slice(0, 16);
     };
 
-    async function handlePredict(e) {
+    // --- STEP 1: FETCH (Weather Forecast Logic) ---
+    function fetchWeatherForecast(dateObj) {
+        return { temperature_c: 31.5, humidity: 65, condition: "Sunny" };
+    }
+
+    // --- STEP 2: PREDICT (Predict Sky Color Logic) ---
+    function predictSkyColor(dateObj) {
+        const hour = dateObj.getHours();
+        if (hour >= 6 && hour < 16) {
+            return [130, 200, 230]; // ฟ้าสดใส
+        } else if (hour >= 16 && hour <= 18) {
+            return [240, 120, 70];  // ช่วงพระอาทิตย์ตก
+        } else {
+            return [30, 40, 60];    // กลางคืน/มืด
+        }
+    }
+
+    // --- STEP 3: RETRIEVE (Image Retrieval Euclidean Distance) ---
+    function retrieveMatchingImage(predictedRgb) {
+        let bestMatch = null;
+        let minDistance = Infinity;
+
+        IMAGE_DATABASE.forEach(img => {
+            // คำนวณระยะห่างทางคณิตศาสตร์ (Euclidean Distance)
+            const dist = Math.sqrt(
+                Math.pow(predictedRgb[0] - img.avg_rgb[0], 2) +
+                Math.pow(predictedRgb[1] - img.avg_rgb[1], 2) +
+                Math.pow(predictedRgb[2] - img.avg_rgb[2], 2)
+            );
+            if (dist < minDistance) {
+                minDistance = dist;
+                bestMatch = img.image_url;
+            }
+        });
+
+        return bestMatch;
+    }
+
+    // --- STEP 4: RECOMMENDATION LOGIC ---
+    function generateActivityRecommendation(weather, rgb) {
+        if (weather.condition === "Sunny" && rgb[0] > 200) {
+            return "เหมาะแก่การเดินเล่นชมพระอาทิตย์ตกดิน และถ่ายรูปริมหาดบางแสน";
+        } else if (weather.condition === "Sunny" && rgb[2] > 200) {
+            return "เหมาะแก่การเล่นน้ำทะเล พักผ่อนใต้ร่มเตียงผ้าใบ หรือเล่นบานาน่าโบ๊ท";
+        } else {
+            return "แนะนำนั่งพักผ่อนในคาเฟ่ริมหาด ชมบรรยากาศยามค่ำคืน";
+        }
+    }
+
+    // --- MAIN PIPELINE (ทำงานทันทีในเบราว์เซอร์) ---
+    function handlePredictJS(e) {
         e.preventDefault();
 
-        const submitBtn = document.getElementById('submitBtn');
         const rawDatetime = document.getElementById('datetimeInput').value;
-        
-        // แปลงฟอร์แมตเวลา YYYY-MM-DDTHH:mm เป็น YYYY-MM-DD HH:mm
-        const formattedDt = rawDatetime.replace('T', ' ');
+        const selectedDate = new Date(rawDatetime);
 
-        // เปลี่ยนปุ่มเป็นสถานะกำลังโหลด
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังประมวลผล...';
+        // 1. Fetch
+        const weatherInfo = fetchWeatherForecast(selectedDate);
 
-        try {
-            // ยิง Request ไปที่ Backend FastAPI (localhost:8000)
-            const response = await fetch('http://127.0.0.1:8000/predict', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ datetime_str: formattedDt })
-            });
+        // 2. Predict Model Inference
+        const predictedRgb = predictSkyColor(selectedDate);
 
-            if (!response.ok) throw new Error('ไม่สามารถเชื่อมต่อระบบประมวลผลได้');
+        // 3. Image Retrieval
+        const retrievedImageUrl = retrieveMatchingImage(predictedRgb);
 
-            const data = await response.json();
-            const output = data.output;
+        // 4. Activity Recommendation
+        const recommendation = generateActivityRecommendation(weatherInfo, predictedRgb);
 
-            // นำข้อมูลลง Element ต่างๆ ในหน้าเว็บ
-            // 1. สภาพอากาศ
-            document.getElementById('resWeather').innerText = `${output.weather.condition}, ${output.weather.temperature_c} °C`;
-            
-            // 2. ค่าสีท้องฟ้า
-            const rgbStr = `rgb(${output.predicted_sky_color_rgb.join(',')})`;
-            document.getElementById('resRgbText').innerText = `RGB(${output.predicted_sky_color_rgb.join(', ')})`;
-            document.getElementById('resColorBadge').style.backgroundColor = rgbStr;
+        // --- DISPLAY OUTPUT TO UI ---
+        // 1. สภาพอากาศ
+        document.getElementById('resWeather').innerText = `${weatherInfo.condition}, ${weatherInfo.temperature_c} °C`;
 
-            // 3. ภาพท้องฟ้าที่ดึงจากคลัง
-            // หากรูปจาก API ไม่สามารถโหลดได้ จะแสดงรูปท้องฟ้าจำลองสำรองแทน
-            const skyImgElement = document.getElementById('resSkyImage');
-            skyImgElement.src = output.matched_image_url;
-            skyImgElement.onerror = function() {
-                // Image fallback
-                this.src = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80';
-            };
+        // 2. ค่าสีท้องฟ้า
+        const rgbStr = `rgb(${predictedRgb.join(',')})`;
+        document.getElementById('resRgbText').innerText = `RGB(${predictedRgb.join(', ')})`;
+        document.getElementById('resColorBadge').style.backgroundColor = rgbStr;
 
-            // 4. คำแนะนำกิจกรรม
-            document.getElementById('resRecommendation').innerText = output.activity_recommendation;
+        // 3. ภาพท้องฟ้าที่ดึงจากคลัง
+        const skyImgElement = document.getElementById('resSkyImage');
+        skyImgElement.src = retrievedImageUrl;
 
-            // สลับการแสดงผลหน้า UI
-            document.getElementById('placeholderState').style.display = 'none';
-            document.getElementById('resultsState').style.display = 'block';
+        // 4. คำแนะนำกิจกรรม
+        document.getElementById('resRecommendation').innerText = recommendation;
 
-        } catch (error) {
-            alert('เกิดข้อผิดพลาด: ' + error.message + '\n(โปรดตรวจสอบว่าได้สั่งรัน main.py FastAPI ไว้แล้วหรือยัง)');
-        } finally {
-            // คืนค่าปุ่มกด
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> พยากรณ์ท้องฟ้า';
-        }
+        // สลับการแสดงผลหน้า UI
+        document.getElementById('placeholderState').style.display = 'none';
+        document.getElementById('resultsState').style.display = 'block';
     }
 </script>
 
