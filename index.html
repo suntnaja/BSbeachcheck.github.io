@@ -82,7 +82,7 @@
             </form>
         </div>
         <div style="font-size: 0.75rem; color: var(--text-sub); text-align: center; margin-top: 20px;">
-            เชื่อมต่อข้อมูลสภาพอากาศเรียลไทม์จาก Visual Crossing API
+            เชื่อมต่อข้อมูลสภาพอากาศเรียลไทม์จาก WeatherAPI.com
         </div>
     </div>
 
@@ -131,7 +131,7 @@
 
 <script>
     let IMAGE_DATABASE = [];
-    const API_KEY = "XK3URSVCSGXCGR8N9FJR69Z4Q";
+    const API_KEY = "0014cf2319cd48418c693120261609";
     const LOCATION = "Bangsaen,Thailand";
 
     window.onload = async function() {
@@ -149,29 +149,43 @@
         }
     };
 
-    // 1. ดึงค่าสภาพอากาศแบบเรียลไทม์จาก Visual Crossing API
+    // 1. ดึงค่าสภาพอากาศแบบเรียลไทม์จาก WeatherAPI.com
     async function fetchRealtimeWeather(datetimeStr) {
-        const url = `https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/${encodeURIComponent(LOCATION)}/${datetimeStr}?unitGroup=metric&key=${API_KEY}&contentType=json`;
+        const dateStr = datetimeStr.split('T')[0];
+        const selectedDate = new Date(datetimeStr);
+        const hour = selectedDate.getHours();
+        
+        const now = new Date();
+        const todayStr = now.toISOString().split('T')[0];
+
+        // เลือก Endpoint ให้เหมาะกับวันที่ (forecast.json สำหรับวันนี้และอนาคต / history.json สำหรับอดีต)
+        let endpoint = "forecast.json";
+        if (dateStr < todayStr) {
+            endpoint = "history.json";
+        }
+
+        const url = `https://api.weatherapi.com/v1/${endpoint}?key=${API_KEY}&q=${encodeURIComponent(LOCATION)}&dt=${dateStr}`;
         
         const response = await fetch(url);
         if (!response.ok) {
-            throw new Error(`API Request Error: ${response.statusText}`);
+            throw new Error(`WeatherAPI Request Error: ${response.statusText}`);
         }
         const data = await response.json();
 
-        const selectedDate = new Date(datetimeStr);
-        const hour = selectedDate.getHours();
-        const hourData = (data.days && data.days[0] && data.days[0].hours && data.days[0].hours[hour])
-            ? data.days[0].hours[hour]
-            : (data.days ? data.days[0] : data);
+        let hourData = null;
+        if (data.forecast && data.forecast.forecastday && data.forecast.forecastday[0] && data.forecast.forecastday[0].hour) {
+            hourData = data.forecast.forecastday[0].hour[hour];
+        } else if (data.current) {
+            hourData = data.current;
+        }
 
         return {
-            temp: hourData.temp || 30,
-            cloudcover: hourData.cloudcover || 0,
-            humidity: hourData.humidity || 0,
-            visibility: hourData.visibility || 10,
-            solarradiation: hourData.solarradiation || 0,
-            conditions: hourData.conditions || "Clear"
+            temp: hourData ? hourData.temp_c : 30,
+            cloudcover: hourData ? hourData.cloud : 0,
+            humidity: hourData ? hourData.humidity : 0,
+            visibility: hourData ? hourData.vis_km : 10,
+            solarradiation: hourData ? (hourData.uv ? hourData.uv * 100 : 0) : 0,
+            conditions: hourData && hourData.condition ? hourData.condition.text : "Clear"
         };
     }
 
@@ -245,10 +259,10 @@
         const rawDatetime = document.getElementById('datetimeInput').value;
 
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังเชื่อมต่อ API...';
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังเชื่อมต่อ WeatherAPI...';
 
         try {
-            // 1. ดึงข้อมูลสภาพอากาศเรียลไทม์ผ่าน API
+            // 1. ดึงข้อมูลสภาพอากาศเรียลไทม์จาก WeatherAPI
             const apiWeather = await fetchRealtimeWeather(rawDatetime);
 
             // 2. เปรียบเทียบข้อมูลสภาพอากาศกับฐานข้อมูลผ่าน ML
