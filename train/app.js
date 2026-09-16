@@ -48,7 +48,6 @@ function extractSkyColors(file) {
                 canvas.width = 400; canvas.height = 300;
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                 
-                // ดึงเฉพาะ 30% ด้านบนของภาพ[cite: 2]
                 const skyHeight = Math.floor(canvas.height * 0.3);
                 const data = ctx.getImageData(0, 0, canvas.width, skyHeight).data;
                 
@@ -61,15 +60,12 @@ function extractSkyColors(file) {
                 let rMean = rSum / count;
                 let gMean = gSum / count;
                 let bMean = bSum / count;
-                let [hMean, sMean, vMean] = rgbToHsv(rMean, gMean, bMean);
 
                 resolve({
                     R_mean: parseFloat(rMean.toFixed(2)),
                     G_mean: parseFloat(gMean.toFixed(2)),
                     B_mean: parseFloat(bMean.toFixed(2)),
-                    H_mean: hMean,
-                    S_mean: sMean,
-                    V_mean: vMean
+                    previewUrl: e.target.result // ส่ง URL ภาพตัวอย่างกลับไป
                 });
             };
             img.src = e.target.result;
@@ -128,46 +124,72 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // แอคชัน: เมื่อกด Train[cite: 3]
     document.getElementById('trainForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const files = document.getElementById('images').files;
-        const inputs = document.querySelectorAll('.datetime-input');
-        const imgFolder = document.getElementById('ghImageFolder').value.replace(/\/$/, ""); 
+    e.preventDefault();
+    const files = document.getElementById('images').files;
+    const inputs = document.querySelectorAll('.datetime-input');
+    const imgFolder = document.getElementById('ghImageFolder').value.replace(/\/$/, ""); 
+    
+    document.getElementById('loadingText').innerText = "กำลังสกัดค่าสีและ Train โมเดล...";
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('resultSection').style.display = 'none';
+
+    globalModel.records = [];
+    globalModel.pendingUploads = [];
+
+    // ดึง body ของตารางมาเพื่อเตรียมแทรกข้อมูล
+    const tbody = document.getElementById('resultTableBody');
+    tbody.innerHTML = ''; 
+
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const color = await extractSkyColors(file);
+        const inputTime = inputs[i].value; 
+        const weatherInfo = getHistoricalWeather(inputTime);
         
-        document.getElementById('loadingText').innerText = "กำลังสกัดค่าสีและ Train โมเดล...";
-        document.getElementById('loading').style.display = 'block';
-        document.getElementById('resultSection').style.display = 'none';
+        const uniqueFilename = `${Date.now()}_${file.name}`;
+        const fullImagePath = `${imgFolder}/${uniqueFilename}`; 
 
-        globalModel.records = [];
-        globalModel.pendingUploads = [];
+        // สร้าง HTML สำหรับ 1 แถวในตารางผลลัพธ์
+        const weatherIcon = weatherInfo.label === 1 ? "☀️" : "☁️";
+        const badgeClass = weatherInfo.label === 1 ? "bg-warning text-dark" : "bg-secondary";
+        const badgeText = weatherInfo.label === 1 ? "กลุ่ม 1 (ฟ้าโปร่ง)" : "กลุ่ม 0 (ฟ้าหม่น)";
 
-        // วนลูปสกัดสีจากภาพทีละภาพ (เสมือนการ Preprocessing ใน Python)
-        for (let i = 0; i < files.length; i++) {
-            const file = files[i];
-            const color = await extractSkyColors(file);
-            const inputTime = inputs[i].value; 
-            const weatherInfo = getHistoricalWeather(inputTime);
-            
-            const uniqueFilename = `${Date.now()}_${file.name}`;
-            const fullImagePath = `${imgFolder}/${uniqueFilename}`; 
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><img src="${color.previewUrl}" class="thumbnail-img"></td>
+            <td>
+                <div class="fw-bold text-muted" style="font-size: 0.9em;">${inputTime.replace('T', ' ')}</div>
+                <div>${weatherInfo.weather_status} ${weatherIcon}</div>
+            </td>
+            <td>
+                <span style="color: #d9534f; font-weight: bold;">R: ${color.R_mean}</span><br>
+                <span style="color: #5cb85c; font-weight: bold;">G: ${color.G_mean}</span><br>
+                <span style="color: #5bc0de; font-weight: bold;">B: ${color.B_mean}</span>
+            </td>
+            <td><span class="badge ${badgeClass} px-3 py-2">${badgeText}</span></td>
+        `;
+        tbody.appendChild(row);
 
-            globalModel.records.push({
-                image_path: fullImagePath,
-                timestamp: inputTime,
-                weather_status: weatherInfo.weather_status,
-                label: weatherInfo.label,
-                ...color
-            });
+        globalModel.records.push({
+            image_path: fullImagePath,
+            timestamp: inputTime,
+            weather_status: weatherInfo.weather_status,
+            label: weatherInfo.label,
+            R_mean: color.R_mean,
+            G_mean: color.G_mean,
+            B_mean: color.B_mean
+        });
 
-            globalModel.pendingUploads.push({
-                fileData: file,
-                uploadPath: fullImagePath
-            });
-        }
-        
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('accText').innerText = `🎯 เรียนรู้ภาพสำเร็จ ${files.length} ภาพ\n(Accuracy: ~100.00% บน Training Set)`;
-        document.getElementById('resultSection').style.display = 'block';
-    });
+        globalModel.pendingUploads.push({
+            fileData: file,
+            uploadPath: fullImagePath
+        });
+    }
+    
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('accText').innerText = `🎯 เรียนรู้ภาพสำเร็จ ${files.length} ภาพ`;
+    document.getElementById('resultSection').style.display = 'block';
+});
 
     // แอคชัน: เมื่อกด Save ขึ้น GitHub
     document.getElementById('saveModelBtn').addEventListener('click', async function() {
