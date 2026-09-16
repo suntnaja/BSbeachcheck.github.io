@@ -10,5 +10,17 @@
     "H_mean": 106,
     "S_mean": 111,
     "V_mean": 227
+  },
+  {
+    "image_path": "images/1789545181317_808855740_1398718252369020_1887427306443905485_n.jpg",
+    "timestamp": "2026-09-16T17:52",
+    "weather_status": "Gloomy",
+    "label": 0,
+    "R_mean": 127.83,
+    "G_mean": 172.63,
+    "B_mean": 226.58,
+    "H_mean": 106,
+    "S_mean": 111,
+    "V_mean": 227
   }
 ]
