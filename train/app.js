@@ -24,7 +24,7 @@ let dbMaxDate = "";
 
 async function fetchDateRangeFromDB() {
     try {
-        const response = await fetch('weatherdb_2.csv'); // ชื่อไฟล์ฐานข้อมูลปัจจุบัน
+        const response = await fetch('weatherdb.csv'); // ชื่อไฟล์ฐานข้อมูลปัจจุบัน
         if (!response.ok) throw new Error("ไม่พบไฟล์ฐานข้อมูล");
         
         const csvText = await response.text();
