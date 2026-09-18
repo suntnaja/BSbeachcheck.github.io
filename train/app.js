@@ -21,6 +21,49 @@ const weatherConditionMap = {
     12: { text: "อากาศร้อนจัด (Very hot)", label: 1, icon: "🔥" }
 };
 
+// ตัวแปรเก็บขอบเขตเวลาของฐานข้อมูล
+let dbMinDate = "";
+let dbMaxDate = "";
+
+// ฟังก์ชันดึงขอบเขตเวลาจาก CSV ล่วงหน้า
+async function fetchDateRangeFromDB() {
+    try {
+        const response = await fetch('weatherdb.csv');
+        if (!response.ok) return;
+        
+        const csvText = await response.text();
+        const rows = csvText.split('\n');
+        const headers = rows[0].split(',');
+        const dateIdx = headers.indexOf('datetime');
+
+        // หาเวลาเริ่มต้น
+        for (let i = 1; i < rows.length; i++) {
+            if (rows[i].trim()) {
+                const cols = rows[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                if (cols[dateIdx]) {
+                    // ตัดเอาเฉพาะส่วน YYYY-MM-DDTHH:mm (16 ตัวอักษรแรก)
+                    dbMinDate = cols[dateIdx].substring(0, 16); 
+                    break;
+                }
+            }
+        }
+
+        // หาเวลาสิ้นสุด
+        for (let i = rows.length - 1; i >= 1; i--) {
+            if (rows[i].trim()) {
+                const cols = rows[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                if (cols[dateIdx]) {
+                    dbMaxDate = cols[dateIdx].substring(0, 16);
+                    break;
+                }
+            }
+        }
+        console.log(`ล็อกปฏิทินตั้งแต่: ${dbMinDate} ถึง ${dbMaxDate}`);
+    } catch (err) {
+        console.error("ดึงขอบเขตเวลาล้มเหลว:", err);
+    }
+}
+
 async function fetchHistoricalWeather(datetimeStr) {
     try {
         // 1. จัดการ Format วันที่ให้ตรงกับในไฟล์ CSV (YYYY-MM-DDTHH:00:00)
@@ -254,20 +297,18 @@ document.addEventListener("DOMContentLoaded", () => {
             section.style.display = 'block';
             Array.from(files).forEach((file, index) => {
                 
-                // สร้าง URL ชั่วคราวสำหรับแสดงรูปภาพตัวอย่าง
                 const previewUrl = URL.createObjectURL(file);
                 
                 container.innerHTML += `
                 <div class="d-flex align-items-center justify-content-between mb-3 p-3 border rounded bg-white shadow-sm">
                     
-                    <!-- ส่วนแสดงรูปภาพตัวอย่างและชื่อไฟล์ -->
                     <div class="d-flex align-items-center" style="max-width: 55%; overflow: hidden;">
                         <img src="${previewUrl}" class="rounded me-3 border" style="width: 70px; height: 70px; object-fit: cover;" alt="preview">
                         <span class="fw-bold text-truncate" title="${file.name}">${file.name}</span>
                     </div>
                     
-                    <!-- ส่วนกรอกวันและเวลา -->
-                    <input type="datetime-local" class="form-control datetime-input" data-index="${index}" style="max-width: 40%;" required>
+                    <!-- 🌟 ปรับปรุง: เพิ่ม min และ max attribute ลงใน input -->
+                    <input type="datetime-local" class="form-control datetime-input" data-index="${index}" style="max-width: 40%;" min="${dbMinDate}" max="${dbMaxDate}" required>
                     
                 </div>`;
             });
@@ -347,9 +388,20 @@ document.addEventListener("DOMContentLoaded", () => {
                         </div>
                     </td>
                     <td>
-                        <span style="color: #d9534f; font-weight: bold;">R: ${color.R_mean}</span><br>
-                        <span style="color: #5cb85c; font-weight: bold;">G: ${color.G_mean}</span><br>
-                        <span style="color: #5bc0de; font-weight: bold;">B: ${color.B_mean}</span>
+                        <div class="d-flex" style="font-size: 0.9em;">
+                            <!-- คอลัมน์ RGB -->
+                            <div class="me-4">
+                                <span style="color: #d9534f; font-weight: bold;">R:</span> ${color.R_mean}<br>
+                                <span style="color: #5cb85c; font-weight: bold;">G:</span> ${color.G_mean}<br>
+                                <span style="color: #5bc0de; font-weight: bold;">B:</span> ${color.B_mean}
+                            </div>
+                            <!-- คอลัมน์ HSV -->
+                            <div>
+                                <span style="color: #f0ad4e; font-weight: bold;">H:</span> ${color.H_mean}<br>
+                                <span style="color: #0275d8; font-weight: bold;">S:</span> ${color.S_mean}<br>
+                                <span style="color: #6c757d; font-weight: bold;">V:</span> ${color.V_mean}
+                            </div>
+                        </div>
                     </td>
                     <td><span class="badge ${badgeClass} px-3 py-2">${badgeText}</span></td>
                 `;
