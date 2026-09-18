@@ -32,17 +32,15 @@ async function fetchHistoricalWeather(datetimeStr) {
         
         const targetDateStr = `${year}-${month}-${day}T${hour}:00:00`;
 
-        // 2. อ่านไฟล์ CSV (ไฟล์ต้องอยู่ในโฟลเดอร์เดียวกันกับหน้าเว็บ)
+        // 2. อ่านไฟล์ CSV 
         const response = await fetch('weatherdb.csv');
         if (!response.ok) throw new Error("ไม่สามารถอ่านไฟล์ weatherdb.csv ได้ (โปรดตรวจสอบว่าไฟล์อยู่ในโฟลเดอร์เดียวกัน)");
         
         const csvText = await response.text();
         const rows = csvText.split('\n');
-        
-        // อ่านหัวคอลัมน์
         const headers = rows[0].split(',');
         
-        // หาตำแหน่ง Index ของตัวแปรที่เลือกมาใช้
+        // หาตำแหน่ง Index
         const dateIdx = headers.indexOf('datetime');
         const tempIdx = headers.indexOf('temp');
         const humidityIdx = headers.indexOf('humidity');
@@ -52,14 +50,42 @@ async function fetchHistoricalWeather(datetimeStr) {
         const solarIdx = headers.indexOf('solarradiation');
         const condIdx = headers.indexOf('conditions');
 
-        // 3. ค้นหาแถวข้อมูลที่เวลาตรงกัน
+        // 🌟 ปรับปรุง: 3. ตรวจสอบขอบเขตเวลา (Min-Max Range Validation)
+        let firstDateStr = null;
+        let lastDateStr = null;
+
+        // หาเวลาเริ่มต้น (แถวแรกที่มีข้อมูล)
+        for (let i = 1; i < rows.length; i++) {
+            if (rows[i].trim()) {
+                const cols = rows[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                if (cols.length > dateIdx && cols[dateIdx]) {
+                    firstDateStr = cols[dateIdx];
+                    break;
+                }
+            }
+        }
+
+        // หาเวลาสิ้นสุด (แถวสุดท้ายที่มีข้อมูล)
+        for (let i = rows.length - 1; i >= 1; i--) {
+            if (rows[i].trim()) {
+                const cols = rows[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                if (cols.length > dateIdx && cols[dateIdx]) {
+                    lastDateStr = cols[dateIdx];
+                    break;
+                }
+            }
+        }
+
+        // เช็คว่าเวลาที่ผู้ใช้กรอก อยู่ในขอบเขตหรือไม่
+        if (targetDateStr < firstDateStr || targetDateStr > lastDateStr) {
+            throw new Error(`อยู่นอกขอบเขตฐานข้อมูล! กรุณาเลือกเวลาใหม่อีกครั้ง\n(ข้อมูลที่มี: ${firstDateStr.replace('T', ' ')} ถึง ${lastDateStr.replace('T', ' ')})`);
+        }
+
+        // 4. ค้นหาแถวข้อมูลที่เวลาตรงกัน
         let matchedRow = null;
         for (let i = 1; i < rows.length; i++) {
-            if (!rows[i].trim()) continue; // ข้ามบรรทัดว่าง
-            
-            // แยกคอลัมน์ (ใช้ Regex เพื่อป้องกันปัญหามีเครื่องหมาย , ซ่อนอยู่ใน " ")
+            if (!rows[i].trim()) continue; 
             const cols = rows[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-            
             if (cols.length > dateIdx && cols[dateIdx] === targetDateStr) {
                 matchedRow = cols;
                 break;
@@ -70,66 +96,41 @@ async function fetchHistoricalWeather(datetimeStr) {
             throw new Error(`ไม่มีข้อมูลของเวลา ${targetDateStr.replace('T', ' ')} ในไฟล์ CSV`);
         }
 
-        // 4. สกัดข้อมูลตัวแปรที่เกี่ยวข้อง (ถ้าช่องว่างให้มองเป็น 0)
+        // 5. สกัดข้อมูลตัวแปรที่เกี่ยวข้อง
         const tc = parseFloat(matchedRow[tempIdx]) || 0;
         const rh = parseFloat(matchedRow[humidityIdx]) || 0;
         const precip = parseFloat(matchedRow[precipIdx]) || 0;
         const cloudcover = parseFloat(matchedRow[cloudcoverIdx]) || 0;
         const visibility = parseFloat(matchedRow[visibilityIdx]) || 0;
         const solarradiation = parseFloat(matchedRow[solarIdx]) || 0;
-        // ลบเครื่องหมาย " ออกจากข้อความอธิบาย (ถ้ามี)
         const conditions_text = (matchedRow[condIdx] || "Unknown").replace(/"/g, ''); 
 
-        // 5. Logic จัดกลุ่มสภาพอากาศแบบ 4 กลุ่มใหม่
+        // 6. Logic จัดกลุ่มสภาพอากาศแบบ 4 กลุ่มใหม่
         let status = "ฟ้าโปร่ง";
         let label = 0;
         let icon = "☀️";
-        
         const condLower = conditions_text.toLowerCase();
 
-        // กลุ่ม 3: ฟ้ามืด (มีฝน หรือ เมฆหนาทึบมากและแสงน้อยมาก)
         if (precip > 0 || condLower.includes("rain") || condLower.includes("storm") || (cloudcover > 85 && solarradiation < 100)) {
-            status = "ฟ้ามืด";
-            label = 3;
-            icon = "⛈️";
-        } 
-        // กลุ่ม 2: ฟ้าหม่น (เมฆคลุมเต็มฟ้า แสงแดดส่องผ่านได้น้อย)
-        else if (cloudcover > 70 && solarradiation < 300) {
-            status = "ฟ้าหม่น";
-            label = 2;
-            icon = "🌥️";
-        } 
-        // กลุ่ม 1: ฟ้ามีเมฆ (มีเมฆปานกลาง หรือเมฆเยอะแต่แสงยังสว่าง)
-        else if (cloudcover >= 30 || (cloudcover > 70 && solarradiation >= 300)) {
-            status = "ฟ้ามีเมฆ";
-            label = 1;
-            icon = "🌤️";
-        } 
-        // กลุ่ม 0: ฟ้าโปร่ง (เมฆน้อย ท้องฟ้าโล่ง)
-        else {
-            status = "ฟ้าโปร่ง";
-            label = 0;
-            icon = "☀️";
+            status = "ฟ้ามืด"; label = 3; icon = "⛈️";
+        } else if (cloudcover > 70 && solarradiation < 300) {
+            status = "ฟ้าหม่น"; label = 2; icon = "🌥️";
+        } else if (cloudcover >= 30 || (cloudcover > 70 && solarradiation >= 300)) {
+            status = "ฟ้ามีเมฆ"; label = 1; icon = "🌤️";
+        } else {
+            status = "ฟ้าโปร่ง"; label = 0; icon = "☀️";
         }
-        
 
         return {
-            status: status,
-            label: label,
-            icon: icon,
-            tc: tc,
-            rh: rh,
-            precip: precip,
-            cloudcover: cloudcover,
-            visibility: visibility,
-            solarradiation: solarradiation,
+            status: status, label: label, icon: icon,
+            tc: tc, rh: rh, precip: precip, cloudcover: cloudcover, visibility: visibility, solarradiation: solarradiation,
             conditions_text: conditions_text
         };
 
     } catch (err) {
         console.error("CSV Read Error:", err);
         return { 
-            status: "Error", label: 1, icon: "❓", 
+            status: "Error", label: 0, icon: "❓", 
             tc: 0, rh: 0, precip: 0, cloudcover: 0, visibility: 0, solarradiation: 0, 
             conditions_text: err.message 
         };
