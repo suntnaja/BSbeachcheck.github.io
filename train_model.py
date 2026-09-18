@@ -66,17 +66,34 @@ def train_and_evaluate(df):
     clf_model.fit(X_train, y_label_train)
     
     print("="*50)
-    print("🎯 ผลประเมินที่ 1: การทำนายสถานะท้องฟ้า (Clear/Gloomy)")
+    print("🎯 ผลประเมินที่ 1: การทำนายสถานะท้องฟ้า (4 กลุ่ม)")
     print("="*50)
     y_label_pred = clf_model.predict(X_test)
     print(f"ความแม่นยำรวม (Accuracy): {accuracy_score(y_label_test, y_label_pred) * 100:.2f}%\n")
     
+    # 🌟 ปรับปรุง: อัปเดตรายชื่อกลุ่มให้ครบ 4 หมวด
+    target_names = ["Clear (0)", "Cloudy (1)", "Gloomy (2)", "Dark (3)"]
+    
+    try:
+        print("รายละเอียดการแยกคลาส (Classification Report):")
+        # แจ้งชื่อคลาสโดยจำกัดตามจำนวนคลาสที่พบใน y_label_test จริง (ป้องกัน Error กรณีข้อมูลบางกลุ่มขาดหาย)
+        unique_labels = sorted(y_label_test.unique())
+        actual_target_names = [target_names[i] for i in unique_labels]
+        print(classification_report(y_label_test, y_label_pred, target_names=actual_target_names))
+    except Exception:
+        print(classification_report(y_label_test, y_label_pred))
+    
     print("ตารางเมทริกซ์ความสับสน (Confusion Matrix):")
     cm = confusion_matrix(y_label_test, y_label_pred)
+    
+    # ดึงชื่อคลาสที่มีจริงในข้อมูลเพื่อมาทำหัวตาราง
+    unique_labels_all = sorted(set(y_label_test) | set(y_label_pred))
+    matrix_names = [target_names[i] for i in unique_labels_all]
+    
     print(pd.DataFrame(
         cm, 
-        index=["Actual Gloomy (0)", "Actual Clear (1)"], 
-        columns=["Predicted Gloomy (0)", "Predicted Clear (1)"]
+        index=[f"Actual {name}" for name in matrix_names], 
+        columns=[f"Predicted {name}" for name in matrix_names]
     ))
 
     # ==========================================
