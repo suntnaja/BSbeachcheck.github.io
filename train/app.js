@@ -1,9 +1,6 @@
 // ==========================================
 // 1. DATA INGESTION & PREPROCESSING (dmt API)
 // ==========================================
-const TMD_ACCESS_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6Ijk5MTI2ZGRhNjQ1MzE1ZjFlMmMyYzE2MWNjYzUxMDE3ZTljZjVlODE3MzNlYTA3OGE1YWFjZjE0NDBkNzQ4ZjdkMjU4MzgyZDIwMGY1MDFiIn0.eyJhdWQiOiIyIiwianRpIjoiOTkxMjZkZGE2NDUzMTVmMWUyYzJjMTYxY2NjNTEwMTdlOWNmNWU4MTczM2VhMDc4YTVhYWNmMTQ0MGQ3NDhmN2QyNTgzODJkMjAwZjUwMWIiLCJpYXQiOjE3ODk1ODQ1MjYsIm5iZiI6MTc4OTU4NDUyNiwiZXhwIjoxODIxMTIwNTI2LCJzdWIiOiI1OTI1Iiwic2NvcGVzIjpbXX0.czc-TQccI2L4j5WCjUAHNNWuZN5QLkObEEa5m_fLFzeQpmsu8n6VMVlhpfkMiJ0s-0eT99bhUF0eLeR_YbB921wbx3-rKgDAYRNo1FwmHmWMtLVEupTwVXCcgc8d4Gv2DdiyxtKOiu0YWLyoNx_kbTehUFp0v8zVyd5uauAUfN6_-NX5U2-sTaPiPDii1oq8fTGTcFhUG48jWpvdKWBJnMvXTPKLFCSYHWt7g5OIWpyHKEpUha7iXiqb7ETGxF2KVoJ6nLmajKcdZqOUyAigYDuoK21kKdzIIqSVOpaPhJ6I78pXYMVivSDnYNZprJLV9KvcJbQ6H_rGgPPDM-mrfz0og_tJ6blDoe7QkxpNpBnL_H-mHxzsubDYF3vNBBVcOh8MFT4tJAAAT1wXooqy5NQDSSKPQJMLL4vfpwwQNRGLGjhKhDFLjXI9_M6GfllRyYtyAGizYXhnIS6wSpdHvjwG16kgQ_Fxpc3RfYkfkPv0q6ZLGNiQoKbV3krhmAvq5VWx2FAxFP7mD5jUaB-6elQe_wM60muAQhQkWZAe7K4RKb8sq5d6dZ3qcIhoRvUB1RPsG7O-i-sXDbcSZfwpatF24RrX0rMVCcp0Bcp07rUHUurcGNYYilnCTmu2xhUM_Jfr6vhGgcjVhdhI8Zc3I_Magx0hay1b51K_T75GLJk";
-const LAT = 13.29; // พิกัดละติจูด หาดบางแสน
-const LON = 100.91; // พิกัดลองจิจูด หาดบางแสน
 
 // แผนผังการแปลรหัสสภาพอากาศ (cond) เป็นสถานะและกลุ่ม
 const weatherConditionMap = {
@@ -21,28 +18,34 @@ const weatherConditionMap = {
     12: { text: "อากาศร้อนจัด (Very hot)", label: 1, icon: "🔥" }
 };
 
-// ตัวแปรเก็บขอบเขตเวลาของฐานข้อมูล
 let dbMinDate = "";
 let dbMaxDate = "";
 
-// ฟังก์ชันดึงขอบเขตเวลาจาก CSV ล่วงหน้า
 async function fetchDateRangeFromDB() {
     try {
         const response = await fetch('weatherdb.csv');
         if (!response.ok) return;
         
         const csvText = await response.text();
-        const rows = csvText.split('\n');
-        const headers = rows[0].split(',');
+        
+        // 🌟 ปรับปรุง: ใช้ Regex แยกบรรทัดให้รองรับทั้ง Windows (\r\n) และ Mac (\n)
+        const rows = csvText.split(/\r?\n/);
+        
+        const headers = rows[0].split(',').map(h => h.trim().replace(/"/g, ''));
         const dateIdx = headers.indexOf('datetime');
+
+        if (dateIdx === -1) {
+            console.error("หาคอลัมน์ datetime ไม่พบใน weatherdb.csv");
+            return;
+        }
 
         // หาเวลาเริ่มต้น
         for (let i = 1; i < rows.length; i++) {
             if (rows[i].trim()) {
                 const cols = rows[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
                 if (cols[dateIdx]) {
-                    // ตัดเอาเฉพาะส่วน YYYY-MM-DDTHH:mm (16 ตัวอักษรแรก)
-                    dbMinDate = cols[dateIdx].substring(0, 16); 
+                    // ตัดเหลือ 16 ตัวอักษร -> YYYY-MM-DDTHH:mm
+                    dbMinDate = cols[dateIdx].replace(/"/g, '').trim().substring(0, 16); 
                     break;
                 }
             }
@@ -53,14 +56,15 @@ async function fetchDateRangeFromDB() {
             if (rows[i].trim()) {
                 const cols = rows[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
                 if (cols[dateIdx]) {
-                    dbMaxDate = cols[dateIdx].substring(0, 16);
+                    dbMaxDate = cols[dateIdx].replace(/"/g, '').trim().substring(0, 16);
                     break;
                 }
             }
         }
-        console.log(`ล็อกปฏิทินตั้งแต่: ${dbMinDate} ถึง ${dbMaxDate}`);
+        
+        console.log(`✅ ล็อกปฏิทินตั้งแต่: ${dbMinDate} ถึง ${dbMaxDate}`);
     } catch (err) {
-        console.error("ดึงขอบเขตเวลาล้มเหลว:", err);
+        console.error("❌ ดึงขอบเขตเวลาล้มเหลว:", err);
     }
 }
 
