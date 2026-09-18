@@ -176,6 +176,9 @@ async function fetchHistoricalWeather(datetimeStr) {
 
     } catch (err) {
         console.error("CSV Read Error:", err);
+        
+        alert(err.message);
+        
         return { 
             status: "Error", label: 0, icon: "❓", 
             tc: 0, rh: 0, precip: 0, cloudcover: 0, visibility: 0, solarradiation: 0, 
