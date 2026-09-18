@@ -80,24 +80,38 @@ async function fetchHistoricalWeather(datetimeStr) {
         // ลบเครื่องหมาย " ออกจากข้อความอธิบาย (ถ้ามี)
         const conditions_text = (matchedRow[condIdx] || "Unknown").replace(/"/g, ''); 
 
-        // 5. Logic จัดกลุ่มสภาพอากาศแบบพิจารณารังสีและเมฆ
-        let status = "Clear";
-        let label = 1;
+        // 5. Logic จัดกลุ่มสภาพอากาศแบบ 4 กลุ่มใหม่
+        let status = "ฟ้าโปร่ง";
+        let label = 0;
         let icon = "☀️";
         
-        if (precip > 0 || conditions_text.toLowerCase().includes("rain")) {
-            status = "Gloomy";
-            label = 0;
-            icon = "🌧️";
-        } else if (cloudcover > 60 && solarradiation < 400) {
-            status = "Gloomy";
-            label = 0;
-            icon = "☁️";
-        } else {
-            status = "Clear";
+        const condLower = conditions_text.toLowerCase();
+
+        // กลุ่ม 3: ฟ้ามืด (มีฝน หรือ เมฆหนาทึบมากและแสงน้อยมาก)
+        if (precip > 0 || condLower.includes("rain") || condLower.includes("storm") || (cloudcover > 85 && solarradiation < 100)) {
+            status = "ฟ้ามืด";
+            label = 3;
+            icon = "⛈️";
+        } 
+        // กลุ่ม 2: ฟ้าหม่น (เมฆคลุมเต็มฟ้า แสงแดดส่องผ่านได้น้อย)
+        else if (cloudcover > 70 && solarradiation < 300) {
+            status = "ฟ้าหม่น";
+            label = 2;
+            icon = "🌥️";
+        } 
+        // กลุ่ม 1: ฟ้ามีเมฆ (มีเมฆปานกลาง หรือเมฆเยอะแต่แสงยังสว่าง)
+        else if (cloudcover >= 30 || (cloudcover > 70 && solarradiation >= 300)) {
+            status = "ฟ้ามีเมฆ";
             label = 1;
+            icon = "🌤️";
+        } 
+        // กลุ่ม 0: ฟ้าโปร่ง (เมฆน้อย ท้องฟ้าโล่ง)
+        else {
+            status = "ฟ้าโปร่ง";
+            label = 0;
             icon = "☀️";
         }
+        
 
         return {
             status: status,
@@ -296,10 +310,29 @@ document.addEventListener("DOMContentLoaded", () => {
                 const uniqueFilename = `${Date.now()}_${file.name}`;
                 const fullImagePath = `${imgFolder}/${uniqueFilename}`; 
 
-                const badgeClass = weatherInfo.label === 1 ? "bg-warning text-dark" : "bg-secondary";
-                const badgeText = weatherInfo.label === 1 ? "กลุ่ม 1 (ฟ้าโปร่ง)" : "กลุ่ม 0 (ฟ้าหม่น)";
+                // กำหนดสีและข้อความของ Badge ตาม 4 กลุ่ม
+                let badgeClass = "";
+                let badgeText = "";
+                switch(weatherInfo.label) {
+                    case 0: 
+                        badgeClass = "bg-primary text-white"; 
+                        badgeText = "กลุ่ม 0 (ฟ้าโปร่ง)"; 
+                        break;
+                    case 1: 
+                        badgeClass = "bg-info text-dark"; 
+                        badgeText = "กลุ่ม 1 (ฟ้ามีเมฆ)"; 
+                        break;
+                    case 2: 
+                        badgeClass = "bg-secondary text-white"; 
+                        badgeText = "กลุ่ม 2 (ฟ้าหม่น)"; 
+                        break;
+                    case 3: 
+                        badgeClass = "bg-dark text-white"; 
+                        badgeText = "กลุ่ม 3 (ฟ้ามืด)"; 
+                        break;
+                }
 
-                // อัปเดตตาราง HTML ให้โชว์เฉพาะตัวแปรจาก CSV
+                // อัปเดตตาราง HTML
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td><img src="${color.previewUrl}" class="thumbnail-img"></td>
