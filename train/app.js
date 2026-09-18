@@ -18,53 +18,32 @@ const weatherConditionMap = {
     12: { text: "อากาศร้อนจัด (Very hot)", label: 1, icon: "🔥" }
 };
 
+// ตัวแปรเก็บขอบเขตเวลา
 let dbMinDate = "";
 let dbMaxDate = "";
 
 async function fetchDateRangeFromDB() {
     try {
-        const response = await fetch('weatherdb.csv');
-        if (!response.ok) return;
+        const response = await fetch('weatherdb_2.csv'); // ชื่อไฟล์ฐานข้อมูลปัจจุบัน
+        if (!response.ok) throw new Error("ไม่พบไฟล์ฐานข้อมูล");
         
         const csvText = await response.text();
         
-        // 🌟 ปรับปรุง: ใช้ Regex แยกบรรทัดให้รองรับทั้ง Windows (\r\n) และ Mac (\n)
-        const rows = csvText.split(/\r?\n/);
+        // 🌟 ปรับปรุงใหม่: สแกนหาข้อความที่มีรูปแบบ YYYY-MM-DDTHH:MM จากทั้งไฟล์โดยตรง 
+        // ไม่ต้องสนใจว่าอยู่คอลัมน์ไหน ตัดปัญหาเรื่อง , หรือ " กวนใจ
+        const datePattern = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/g;
+        const matches = csvText.match(datePattern);
         
-        const headers = rows[0].split(',').map(h => h.trim().replace(/"/g, ''));
-        const dateIdx = headers.indexOf('datetime');
-
-        if (dateIdx === -1) {
-            console.error("หาคอลัมน์ datetime ไม่พบใน weatherdb.csv");
-            return;
+        if (matches && matches.length > 0) {
+            dbMinDate = matches[0];                     // วันที่ตัวแรกที่เจอในไฟล์
+            dbMaxDate = matches[matches.length - 1];    // วันที่ตัวสุดท้ายที่เจอในไฟล์
+            
+            console.log(`✅ ล็อกปฏิทินเรียบร้อย: ${dbMinDate} ถึง ${dbMaxDate}`);
+        } else {
+            console.error("❌ ไม่พบรูปแบบวันที่ที่ถูกต้องในไฟล์เลย");
         }
-
-        // หาเวลาเริ่มต้น
-        for (let i = 1; i < rows.length; i++) {
-            if (rows[i].trim()) {
-                const cols = rows[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-                if (cols[dateIdx]) {
-                    // ตัดเหลือ 16 ตัวอักษร -> YYYY-MM-DDTHH:mm
-                    dbMinDate = cols[dateIdx].replace(/"/g, '').trim().substring(0, 16); 
-                    break;
-                }
-            }
-        }
-
-        // หาเวลาสิ้นสุด
-        for (let i = rows.length - 1; i >= 1; i--) {
-            if (rows[i].trim()) {
-                const cols = rows[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-                if (cols[dateIdx]) {
-                    dbMaxDate = cols[dateIdx].replace(/"/g, '').trim().substring(0, 16);
-                    break;
-                }
-            }
-        }
-        
-        console.log(`✅ ล็อกปฏิทินตั้งแต่: ${dbMinDate} ถึง ${dbMaxDate}`);
     } catch (err) {
-        console.error("❌ ดึงขอบเขตเวลาล้มเหลว:", err);
+        console.error("❌ การดึงขอบเขตเวลาล้มเหลว:", err);
     }
 }
 
