@@ -253,6 +253,8 @@ const globalModel = new SkyWeatherModel();
 // 4. User Interface Logic (Events)
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
+
+    fetchDateRangeFromDB();
     
     // ------------------------------------------
     // 4.1 โหลดข้อมูลการตั้งค่า GitHub อัตโนมัติ (Local Storage)
@@ -287,17 +289,32 @@ document.addEventListener("DOMContentLoaded", () => {
                 
                 container.innerHTML += `
                 <div class="d-flex align-items-center justify-content-between mb-3 p-3 border rounded bg-white shadow-sm">
-                    
                     <div class="d-flex align-items-center" style="max-width: 55%; overflow: hidden;">
                         <img src="${previewUrl}" class="rounded me-3 border" style="width: 70px; height: 70px; object-fit: cover;" alt="preview">
                         <span class="fw-bold text-truncate" title="${file.name}">${file.name}</span>
                     </div>
-                    
-                    <!-- 🌟 ปรับปรุง: เพิ่ม min และ max attribute ลงใน input -->
                     <input type="datetime-local" class="form-control datetime-input" data-index="${index}" style="max-width: 40%;" min="${dbMinDate}" max="${dbMaxDate}" required>
-                    
                 </div>`;
             });
+
+            // 🌟 เติมระบบดีดกลับ: ดักจับถ้าผู้ใช้ฝืนพิมพ์วันที่ผิด
+            const dateInputs = document.querySelectorAll('.datetime-input');
+            dateInputs.forEach(input => {
+                input.addEventListener('change', function() {
+                    if (dbMinDate && dbMaxDate) {
+                        if (this.value < dbMinDate || this.value > dbMaxDate) {
+                            // เด้ง Pop-up แจ้งเตือน
+                            alert(`⚠️ วันที่อยู่นอกขอบเขตฐานข้อมูล!\n\nกรุณาเลือกเวลาในช่วง:\n${dbMinDate.replace('T', ' ')} ถึง ${dbMaxDate.replace('T', ' ')}`);
+                            
+                            this.value = ''; // เคลียร์ช่องปฏิทินให้ว่าง
+                            
+                            // ดึงเคอร์เซอร์กลับไปบังคับให้กรอกใหม่
+                            setTimeout(() => this.focus(), 10); 
+                        }
+                    }
+                });
+            });
+
         } else { 
             section.style.display = 'none'; 
         }
