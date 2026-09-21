@@ -38,7 +38,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # โฟลเดอร์ที่เก็บรูปภาพ (สมมติว่าอยู่นอกสุด ชื่อโฟลเดอร์ images)
 IMAGE_DIR = os.path.join(BASE_DIR, '..', 'images') 
 # ฐานข้อมูลสภาพอากาศ
-WEATHER_PATH = os.path.join(BASE_DIR, '..', 'data', 'weatherdb_2.csv')
+WEATHER_PATH = os.path.join(BASE_DIR, '..', 'data', 'weatherdb.csv')
 # ปลายทางไฟล์ผลลัพธ์
 OUTPUT_PATH = os.path.join(BASE_DIR, '..', 'data', 'model_db.csv')
 
