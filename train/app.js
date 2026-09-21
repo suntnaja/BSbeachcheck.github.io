@@ -184,66 +184,39 @@ function rgbToHsv(r, g, b) {
 }
 
 // ==========================================
-// 2. FEATURES (สกัดข้อมูลสีท้องฟ้า)
+// 2. IMAGE PROCESSING (แปลงไฟล์เป็น JPG)
 // ==========================================
-function extractSkyColors(file) {
+// แปลงไฟล์ภาพทุกชนิดเป็น JPG 95% Quality โดยไม่ครอบตัด (คงขนาด Original)
+function convertToJPG(file) {
     return new Promise((resolve, reject) => {
         const img = new Image();
         const objectUrl = URL.createObjectURL(file);
 
         img.onload = function() {
-            try {
-                const canvas = document.getElementById('hiddenCanvas');
-                const ctx = canvas.getContext('2d');
-                canvas.width = 400; canvas.height = 300;
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                
-                const skyHeight = Math.floor(canvas.height * 0.3);
-                const data = ctx.getImageData(0, 0, canvas.width, skyHeight).data;
-                
-                let rSum = 0, gSum = 0, bSum = 0;
-                let count = data.length / 4;
-                for (let i = 0; i < data.length; i += 4) { 
-                    rSum += data[i]; gSum += data[i+1]; bSum += data[i+2]; 
-                }
-                
-                let rMean = rSum / count;
-                let gMean = gSum / count;
-                let bMean = bSum / count;
-                let [hMean, sMean, vMean] = rgbToHsv(rMean, gMean, bMean);
-
-                resolve({
-                    R_mean: parseFloat(rMean.toFixed(2)),
-                    G_mean: parseFloat(gMean.toFixed(2)),
-                    B_mean: parseFloat(bMean.toFixed(2)),
-                    H_mean: hMean, S_mean: sMean, V_mean: vMean,
-                    previewUrl: objectUrl
-                });
-            } catch (err) { reject(err); }
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            
+            // วาดภาพต้นฉบับลง Canvas
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            
+            // แปลงเป็น JPG Base64
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+            const base64Data = dataUrl.split(',')[1];
+            resolve(base64Data);
         };
-
-        img.onerror = function() {
-            reject(new Error(`ไม่สามารถอ่านไฟล์ภาพ ${file.name} ได้`));
-        };
+        img.onerror = reject;
         img.src = objectUrl;
     });
 }
 
-function fileToBase64(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = error => reject(error);
-    });
-}
-
 // ==========================================
-// 3. Simple ML Model & Global State
+// 3. GLOBAL STATE
 // ==========================================
 class SkyWeatherModel {
     constructor() {
-        this.records = [];
+        this.records = []; // เก็บ Metadata เพื่อรอส่งขึ้น Github
         this.pendingUploads = [];
     }
 }
@@ -254,90 +227,26 @@ const globalModel = new SkyWeatherModel();
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
 
-    fetchDateRangeFromDB();
+    fetchDateRangeFromDB(); // ดึงขอบเขตเวลา
+    
+    // (โค้ด 4.1 และ 4.2 ตรวจจับไฟล์ คงเดิมเหมือนที่เคยทำไว้...)
     
     // ------------------------------------------
-    // 4.1 โหลดข้อมูลการตั้งค่า GitHub อัตโนมัติ (Local Storage)
+    // 4.3 เมื่อกดปุ่มเตรียมข้อมูล (ดึงสภาพอากาศเบื้องต้น + เตรียมอัปโหลด)
     // ------------------------------------------
-    if (localStorage.getItem('ghOwner')) document.getElementById('ghOwner').value = localStorage.getItem('ghOwner');
-    if (localStorage.getItem('ghRepo')) document.getElementById('ghRepo').value = localStorage.getItem('ghRepo');
-    if (localStorage.getItem('ghPath')) document.getElementById('ghPath').value = localStorage.getItem('ghPath');
-    if (localStorage.getItem('ghImageFolder')) document.getElementById('ghImageFolder').value = localStorage.getItem('ghImageFolder');
-    if (localStorage.getItem('ghToken')) document.getElementById('ghToken').value = localStorage.getItem('ghToken');
-
-    const inputsToSave = ['ghOwner', 'ghRepo', 'ghPath', 'ghImageFolder', 'ghToken'];
-    inputsToSave.forEach(id => {
-        document.getElementById(id).addEventListener('input', function(e) {
-            localStorage.setItem(id, e.target.value);
-        });
-    });
-
-    // ------------------------------------------
-    // 4.2 ตรวจจับการเลือกไฟล์ภาพ (ที่หายไป)
-    // ------------------------------------------
-    document.getElementById('images').addEventListener('change', function(e) {
-        const files = e.target.files;
-        const container = document.getElementById('fileListContainer');
-        const section = document.getElementById('dateTimeInputSection');
-        container.innerHTML = '';
-        
-        if (files.length > 0) {
-            section.style.display = 'block';
-            Array.from(files).forEach((file, index) => {
-                
-                const previewUrl = URL.createObjectURL(file);
-                
-                container.innerHTML += `
-                <div class="d-flex align-items-center justify-content-between mb-3 p-3 border rounded bg-white shadow-sm">
-                    <div class="d-flex align-items-center" style="max-width: 55%; overflow: hidden;">
-                        <img src="${previewUrl}" class="rounded me-3 border" style="width: 70px; height: 70px; object-fit: cover;" alt="preview">
-                        <span class="fw-bold text-truncate" title="${file.name}">${file.name}</span>
-                    </div>
-                    <input type="datetime-local" class="form-control datetime-input" data-index="${index}" style="max-width: 40%;" min="${dbMinDate}" max="${dbMaxDate}" required>
-                </div>`;
-            });
-
-            // 🌟 เติมระบบดีดกลับ: ดักจับถ้าผู้ใช้ฝืนพิมพ์วันที่ผิด
-            const dateInputs = document.querySelectorAll('.datetime-input');
-            dateInputs.forEach(input => {
-                input.addEventListener('change', function() {
-                    if (dbMinDate && dbMaxDate) {
-                        if (this.value < dbMinDate || this.value > dbMaxDate) {
-                            // เด้ง Pop-up แจ้งเตือน
-                            alert(`⚠️ วันที่อยู่นอกขอบเขตฐานข้อมูล!\n\nกรุณาเลือกเวลาในช่วง:\n${dbMinDate.replace('T', ' ')} ถึง ${dbMaxDate.replace('T', ' ')}`);
-                            
-                            this.value = ''; // เคลียร์ช่องปฏิทินให้ว่าง
-                            
-                            // ดึงเคอร์เซอร์กลับไปบังคับให้กรอกใหม่
-                            setTimeout(() => this.focus(), 10); 
-                        }
-                    }
-                });
-            });
-
-        } else { 
-            section.style.display = 'none'; 
-        }
-    });
-
-    // ------------------------------------------
-    // 4.3 เมื่อกดปุ่ม Train (สกัดสี + ดึงสภาพอากาศ + วาดตาราง)
-    // ------------------------------------------
-    // (ในส่วนของ document.getElementById('trainForm').addEventListener('submit', ...) )
-   document.getElementById('trainForm').addEventListener('submit', async function(e) {
-        e.preventDefault(); // 🛑 โค้ดบรรทัดนี้สำคัญมาก! ทำหน้าที่ป้องกันไม่ให้หน้าเว็บรีเฟรชตัวเอง
+    document.getElementById('trainForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
 
         const files = document.getElementById('images').files;
         const inputs = document.querySelectorAll('.datetime-input');
         const imgFolder = document.getElementById('ghImageFolder').value.replace(/\/$/, ""); 
         
-        document.getElementById('loadingText').innerText = "กำลังสกัดค่าสี และดึงข้อมูลจาก TMD NWP API...";
+        document.getElementById('loadingText').innerText = "กำลังประมวลผล แปลงเป็น JPG และดึงข้อมูลสภาพอากาศ...";
         document.getElementById('loading').style.display = 'block';
         document.getElementById('resultSection').style.display = 'none';
 
         globalModel.records = [];
         globalModel.pendingUploads = [];
-
         const tbody = document.getElementById('resultTableBody');
         tbody.innerHTML = ''; 
 
@@ -346,89 +255,35 @@ document.addEventListener("DOMContentLoaded", () => {
                 const file = files[i];
                 const inputTime = inputs[i].value; 
                 
-                // สกัดสี และ ดึง API พร้อมกัน
-                const [color, weatherInfo] = await Promise.all([
-                    extractSkyColors(file),
-                    fetchHistoricalWeather(inputTime)
-                ]);
-                
-                const uniqueFilename = `${Date.now()}_${file.name}`;
+                const weatherInfo = await fetchHistoricalWeather(inputTime);
+                if (weatherInfo.status === "Error") continue;
+
+                // เปลี่ยนนามสกุลไฟล์ที่อัปโหลดให้เป็น .jpg เสมอ
+                const originalName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+                const uniqueFilename = `${Date.now()}_${originalName}.jpg`;
                 const fullImagePath = `${imgFolder}/${uniqueFilename}`; 
+                
+                // สร้างพรีวิวสำหรับหน้าเว็บ
+                const previewUrl = URL.createObjectURL(file);
 
-                // กำหนดสีและข้อความของ Badge ตาม 4 กลุ่ม
-                let badgeClass = "";
-                let badgeText = "";
-                switch(weatherInfo.label) {
-                    case 0: 
-                        badgeClass = "bg-primary text-white"; 
-                        badgeText = "กลุ่ม 0 (ฟ้าโปร่ง)"; 
-                        break;
-                    case 1: 
-                        badgeClass = "bg-info text-dark"; 
-                        badgeText = "กลุ่ม 1 (ฟ้ามีเมฆ)"; 
-                        break;
-                    case 2: 
-                        badgeClass = "bg-secondary text-white"; 
-                        badgeText = "กลุ่ม 2 (ฟ้าหม่น)"; 
-                        break;
-                    case 3: 
-                        badgeClass = "bg-dark text-white"; 
-                        badgeText = "กลุ่ม 3 (ฟ้ามืด)"; 
-                        break;
-                }
-
-                // อัปเดตตาราง HTML
+                // แสดงผลบนหน้าเว็บ (แสดงแค่ข้อมูล ไม่โชว์ค่าสีแล้ว)
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td><img src="${color.previewUrl}" class="thumbnail-img"></td>
+                    <td><img src="${previewUrl}" style="width:70px; height:70px; object-fit:cover; border-radius:8px;"></td>
                     <td>
-                        <div class="fw-bold text-muted" style="font-size: 0.85em;">${inputTime.replace('T', ' ')}</div>
-                        <div class="fw-bold mt-1 text-primary">${weatherInfo.status} ${weatherInfo.icon}</div>
-                        <div style="font-size: 0.8em; color: #555; margin-top: 4px;">
-                            🌡️ อุณหภูมิ: ${weatherInfo.tc}°C | 💧 ความชื้น: ${weatherInfo.rh}%<br>
-                            🌧️ ปริมาณฝน: ${weatherInfo.precip} mm | ☀️ รังสี: ${weatherInfo.solarradiation} W/m²<br>
-                            ☁️ เมฆปกคลุม: ${weatherInfo.cloudcover}% | 👀 ทัศนวิสัย: ${weatherInfo.visibility} km
-                        </div>
+                        <div class="fw-bold">${inputTime.replace('T', ' ')}</div>
+                        <div class="text-primary">${weatherInfo.status} ${weatherInfo.icon}</div>
                     </td>
-                    <td>
-                        <div class="d-flex" style="font-size: 0.9em;">
-                            <!-- คอลัมน์ RGB -->
-                            <div class="me-4">
-                                <span style="color: #d9534f; font-weight: bold;">R:</span> ${color.R_mean}<br>
-                                <span style="color: #5cb85c; font-weight: bold;">G:</span> ${color.G_mean}<br>
-                                <span style="color: #5bc0de; font-weight: bold;">B:</span> ${color.B_mean}
-                            </div>
-                            <!-- คอลัมน์ HSV -->
-                            <div>
-                                <span style="color: #f0ad4e; font-weight: bold;">H:</span> ${color.H_mean}<br>
-                                <span style="color: #0275d8; font-weight: bold;">S:</span> ${color.S_mean}<br>
-                                <span style="color: #6c757d; font-weight: bold;">V:</span> ${color.V_mean}
-                            </div>
-                        </div>
-                    </td>
-                    <td><span class="badge ${badgeClass} px-3 py-2">${badgeText}</span></td>
+                    <td><span class="badge bg-secondary">รอ Python สกัดสีจากภาพเต็ม</span></td>
+                    <td>${weatherInfo.label} (กลุ่ม ${weatherInfo.status})</td>
                 `;
                 tbody.appendChild(row);
 
-                // อัปเดตข้อมูลที่จะส่งไปเก็บใน model_db.json ให้ชื่อตรงกับ CSV
+                // เก็บ Metadata เพื่อเตรียมต่อท้ายใน raw_metadata.csv
                 globalModel.records.push({
                     image_path: fullImagePath,
                     timestamp: inputTime,
-                    weather_status: weatherInfo.status,
-                    conditions_desc: weatherInfo.conditions_text,
-                    label: weatherInfo.label,
-                    env_temp: weatherInfo.tc,
-                    env_humidity: weatherInfo.rh,
-                    env_precip: weatherInfo.precip,
-                    env_cloudcover: weatherInfo.cloudcover,
-                    env_visibility: weatherInfo.visibility,
-                    env_solarradiation: weatherInfo.solarradiation,
-                    R_mean: color.R_mean,
-                    G_mean: color.G_mean,
-                    B_mean: color.B_mean,
-                    H_mean: color.H_mean,
-                    S_mean: color.S_mean,
-                    V_mean: color.V_mean
+                    label: weatherInfo.label
                 });
 
                 globalModel.pendingUploads.push({
@@ -438,7 +293,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             
             document.getElementById('loading').style.display = 'none';
-            document.getElementById('accText').innerText = `✅ ดึงข้อมูลสำเร็จ! (วิเคราะห์ไป ${files.length} ภาพ)`;
+            document.getElementById('accText').innerText = `✅ เตรียมข้อมูลสำเร็จ กดปุ่ม Save เพื่ออัปโหลดขึ้น GitHub`;
             document.getElementById('resultSection').style.display = 'block';
 
         } catch (error) {
@@ -448,74 +303,73 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // ------------------------------------------
-    // 4.4 เมื่อกด Save ขึ้น GitHub
+    // 4.4 เมื่อกด Save ขึ้น GitHub (แปลงไฟล์และอัปโหลด)
     // ------------------------------------------
     document.getElementById('saveModelBtn').addEventListener('click', async function() {
         const owner = document.getElementById('ghOwner').value;
         const repo = document.getElementById('ghRepo').value;
-        const path = document.getElementById('ghPath').value; 
+        const path = document.getElementById('ghPath').value.replace('.json', '.csv'); // บังคับเซฟเป็น CSV
         const token = document.getElementById('ghToken').value;
 
-        if(!owner || !repo || !token) return alert("กรุณากรอกข้อมูล GitHub ให้ครบ (รวมถึง Token)");
-        if(globalModel.pendingUploads.length === 0) return alert("ไม่มีข้อมูลให้บันทึก");
-
+        if(!owner || !repo || !token) return alert("กรุณากรอกข้อมูล GitHub ให้ครบ");
         document.getElementById('loading').style.display = 'block';
         
         try {
             const totalFiles = globalModel.pendingUploads.length;
+            
+            // 1. แปลงรูปเป็น JPG และอัปโหลด
             for (let i = 0; i < totalFiles; i++) {
-                document.getElementById('loadingText').innerText = `กำลังอัปโหลดรูปภาพที่ ${i+1} / ${totalFiles}...`;
+                document.getElementById('loadingText').innerText = `กำลังแปลงไฟล์และอัปโหลดรูปภาพที่ ${i+1}/${totalFiles}...`;
                 const uploadItem = globalModel.pendingUploads[i];
-                const base64Data = await fileToBase64(uploadItem.fileData);
+                
+                // แปลงไฟล์เป็น JPG Base64 ทันทีก่อนอัปโหลด
+                const base64Jpg = await convertToJPG(uploadItem.fileData);
                 
                 const url = `https://api.github.com/repos/${owner}/${repo}/contents/${uploadItem.uploadPath}`;
                 await fetch(url, {
                     method: "PUT",
                     headers: { "Authorization": `token ${token}`, "Content-Type": "application/json" },
-                    body: JSON.stringify({ message: `Upload image via ML Web UI`, content: base64Data })
+                    body: JSON.stringify({ message: `Upload JPG image via ML Web UI`, content: base64Jpg })
                 });
             }
 
-            document.getElementById('loadingText').innerText = "กำลังอัปเดตไฟล์ฐานข้อมูลโมเดล (JSON)...";
+            // 2. อัปเดตไฟล์ข้อมูลภาพตั้งต้น (raw_metadata.csv)
+            document.getElementById('loadingText').innerText = "กำลังอัปเดตไฟล์ข้อมูล (CSV)...";
             const dbUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
             const headers = { "Authorization": `token ${token}`, "Content-Type": "application/json" };
             
             let sha = null;
-            let existingData = [];
+            let existingCsv = "image_path,timestamp\n"; // Header เริ่มต้น
 
             try {
                 const getRes = await fetch(dbUrl, { headers });
                 if (getRes.ok) {
                     const getJson = await getRes.json();
                     sha = getJson.sha; 
-                    const decoded = decodeURIComponent(escape(atob(getJson.content)));
-                    existingData = JSON.parse(decoded);
+                    // Decode Base64 ของ CSV ที่มีอยู่เดิม
+                    existingCsv = decodeURIComponent(escape(atob(getJson.content)));
                 }
-            } catch (e) { console.log("Creating new DB file"); }
+            } catch (e) { console.log("สร้างไฟล์ CSV ใหม่"); }
 
-            const combinedData = [...existingData, ...globalModel.records];
-            const jsonString = JSON.stringify(combinedData, null, 2);
-            const base64Content = btoa(unescape(encodeURIComponent(jsonString)));
+            // นำข้อมูลใหม่ต่อท้าย CSV
+            let newRows = globalModel.records.map(r => `${r.image_path},${r.timestamp}`).join('\n');
+            if (newRows) newRows = (existingCsv.endsWith('\n') ? '' : '\n') + newRows + '\n';
+            const combinedCsv = existingCsv + newRows;
 
-            const putBody = { message: `Update ML DB (Total: ${combinedData.length} records)`, content: base64Content };
+            const base64Content = btoa(unescape(encodeURIComponent(combinedCsv)));
+            const putBody = { message: `Update metadata DB`, content: base64Content };
             if (sha) putBody.sha = sha; 
 
             const putRes = await fetch(dbUrl, { method: "PUT", headers, body: JSON.stringify(putBody) });
 
             if(putRes.ok) {
-                alert(`☁️ อัปโหลดเสร็จสมบูรณ์!\nอัปโหลดรูปภาพ ${totalFiles} ไฟล์ และอัปเดตฐานข้อมูลสำเร็จ`);
-                
-                document.getElementById('trainForm').reset();
-                document.getElementById('fileListContainer').innerHTML = '';
-                document.getElementById('dateTimeInputSection').style.display = 'none';
-                document.getElementById('resultSection').style.display = 'none';
+                alert(`☁️ อัปโหลดเสร็จสมบูรณ์! ไฟล์ทั้งหมดถูกลดขนาดเป็น JPG แล้ว`);
             } else {
                 alert("❌ เกิดข้อผิดพลาดในการอัปเดตฐานข้อมูล");
             }
         } catch(e) { 
             alert("❌ Error: " + e.message); 
         }
-        
         document.getElementById('loading').style.display = 'none';
     });
 });
