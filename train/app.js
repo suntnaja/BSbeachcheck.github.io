@@ -229,7 +229,69 @@ document.addEventListener("DOMContentLoaded", () => {
 
     fetchDateRangeFromDB(); // ดึงขอบเขตเวลา
     
-    // (โค้ด 4.1 และ 4.2 ตรวจจับไฟล์ คงเดิมเหมือนที่เคยทำไว้...)
+    // ------------------------------------------
+    // 4.1 โหลดข้อมูลการตั้งค่า GitHub อัตโนมัติ (Local Storage)
+    // ------------------------------------------
+    if (localStorage.getItem('ghOwner')) document.getElementById('ghOwner').value = localStorage.getItem('ghOwner');
+    if (localStorage.getItem('ghRepo')) document.getElementById('ghRepo').value = localStorage.getItem('ghRepo');
+    if (localStorage.getItem('ghPath')) document.getElementById('ghPath').value = localStorage.getItem('ghPath');
+    if (localStorage.getItem('ghImageFolder')) document.getElementById('ghImageFolder').value = localStorage.getItem('ghImageFolder');
+    if (localStorage.getItem('ghToken')) document.getElementById('ghToken').value = localStorage.getItem('ghToken');
+
+    const inputsToSave = ['ghOwner', 'ghRepo', 'ghPath', 'ghImageFolder', 'ghToken'];
+    inputsToSave.forEach(id => {
+        document.getElementById(id).addEventListener('input', function(e) {
+            localStorage.setItem(id, e.target.value);
+        });
+    });
+
+    // ------------------------------------------
+    // 4.2 ตรวจจับการเลือกไฟล์ภาพ (ที่หายไป)
+    // ------------------------------------------
+    document.getElementById('images').addEventListener('change', function(e) {
+        const files = e.target.files;
+        const container = document.getElementById('fileListContainer');
+        const section = document.getElementById('dateTimeInputSection');
+        container.innerHTML = '';
+        
+        if (files.length > 0) {
+            section.style.display = 'block';
+            Array.from(files).forEach((file, index) => {
+                
+                const previewUrl = URL.createObjectURL(file);
+                
+                container.innerHTML += `
+                <div class="d-flex align-items-center justify-content-between mb-3 p-3 border rounded bg-white shadow-sm">
+                    <div class="d-flex align-items-center" style="max-width: 55%; overflow: hidden;">
+                        <img src="${previewUrl}" class="rounded me-3 border" style="width: 70px; height: 70px; object-fit: cover;" alt="preview">
+                        <span class="fw-bold text-truncate" title="${file.name}">${file.name}</span>
+                    </div>
+                    <input type="datetime-local" class="form-control datetime-input" data-index="${index}" style="max-width: 40%;" min="${dbMinDate}" max="${dbMaxDate}" required>
+                </div>`;
+            });
+
+            // 🌟 เติมระบบดีดกลับ: ดักจับถ้าผู้ใช้ฝืนพิมพ์วันที่ผิด
+            const dateInputs = document.querySelectorAll('.datetime-input');
+            dateInputs.forEach(input => {
+                input.addEventListener('change', function() {
+                    if (dbMinDate && dbMaxDate) {
+                        if (this.value < dbMinDate || this.value > dbMaxDate) {
+                            // เด้ง Pop-up แจ้งเตือน
+                            alert(`⚠️ วันที่อยู่นอกขอบเขตฐานข้อมูล!\n\nกรุณาเลือกเวลาในช่วง:\n${dbMinDate.replace('T', ' ')} ถึง ${dbMaxDate.replace('T', ' ')}`);
+                            
+                            this.value = ''; // เคลียร์ช่องปฏิทินให้ว่าง
+                            
+                            // ดึงเคอร์เซอร์กลับไปบังคับให้กรอกใหม่
+                            setTimeout(() => this.focus(), 10); 
+                        }
+                    }
+                });
+            });
+
+        } else { 
+            section.style.display = 'none'; 
+        }
+    });
     
     // ------------------------------------------
     // 4.3 เมื่อกดปุ่มเตรียมข้อมูล (ดึงสภาพอากาศเบื้องต้น + เตรียมอัปโหลด)
