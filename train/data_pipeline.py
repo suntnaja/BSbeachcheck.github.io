@@ -105,5 +105,5 @@ for index, row in metadata_df.iterrows():
 
 # 3. บันทึกผลลัพธ์เป็น model_db.csv สำหรับการเทรน Machine Learning ในขั้นต่อไป
 final_df = pd.DataFrame(final_records)
-final_df.to_csv("model_db.csv", index=False, encoding='utf-8-sig')
+final_df.to_csv("data/model_db.csv", index=False, encoding='utf-8-sig')
 print("\n🎉 กระบวนการเสร็จสมบูรณ์! ข้อมูลถูกบันทึกลง model_db.csv เรียบร้อยแล้ว")
