@@ -30,10 +30,16 @@ processor = SegformerImageProcessor.from_pretrained("nvidia/segformer-b0-finetun
 model = SegformerForSemanticSegmentation.from_pretrained("nvidia/segformer-b0-finetuned-ade-512-512")
 
 # 1. โหลดข้อมูล Metadata ที่ได้จากเว็บ และฐานข้อมูลสภาพอากาศ
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 try:
-    metadata_df = pd.read_csv("/data/raw_metadata.csv") # ได้มาจาก Github
-    weather_df = pd.read_csv("/data/weatherdb.csv")
-    weather_df['datetime'] = weather_df['datetime'].str.slice(0, 16) # ปรับให้รูปแบบตรงกัน
+    # ถอย 1 ขั้น แล้วเข้าโฟลเดอร์ data (ปรับแก้ตามโครงสร้างจริงของคุณ)
+    metadata_path = os.path.join(BASE_DIR, '..', 'data', 'raw_metadata.csv')
+    weather_path = os.path.join(BASE_DIR, '..', 'data', 'weatherdb.csv')
+    
+    metadata_df = pd.read_csv(metadata_path) 
+    weather_df = pd.read_csv(weather_path)
+    weather_df['datetime'] = weather_df['datetime'].str.slice(0, 16) #[cite: 4]
 except Exception as e:
     print(f"เกิดข้อผิดพลาดในการโหลดไฟล์ CSV: {e}")
     exit()
@@ -104,6 +110,6 @@ for index, row in metadata_df.iterrows():
         print(f"❌ Error in processing {img_path}: {e}")
 
 # 3. บันทึกผลลัพธ์เป็น model_db.csv สำหรับการเทรน Machine Learning ในขั้นต่อไป
-final_df = pd.DataFrame(final_records)
-final_df.to_csv("/data/model_db.csv", index=False, encoding='utf-8-sig')
-print("\n🎉 กระบวนการเสร็จสมบูรณ์! ข้อมูลถูกบันทึกลง model_db.csv เรียบร้อยแล้ว")
+output_path = os.path.join(BASE_DIR, '..', 'data', 'model_db.csv')
+final_df = pd.DataFrame(final_records) #[cite: 4]
+final_df.to_csv(output_path, index=False, encoding='utf-8-sig') #[cite: 4]
