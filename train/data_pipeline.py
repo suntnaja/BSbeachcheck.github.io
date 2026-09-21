@@ -49,18 +49,25 @@ final_records = []
 # 2. เริ่มกระบวนการวิเคราะห์ทีละภาพ
 print("เริ่มกระบวนการวิเคราะห์และสกัดสีจากภาพ...")
 for index, row in metadata_df.iterrows():
-    img_path = row['image_path']
-    timestamp = row['timestamp']
+    raw_img_path = row['image_path']
+    # บังคับตัดเวลาให้เหลือ 16 ตัวอักษร (YYYY-MM-DDTHH:mm) เพื่อให้เทียบกันได้ชัวร์ๆ
+    timestamp = str(row['timestamp'])[:16] 
+    
+    # 🌟 แก้ไข 1: แปลง Path รูปภาพให้เป็น Absolute Path (อ้างอิงจาก BASE_DIR)
+    # สมมติว่า raw_img_path คือ "images/pic.jpg" และสคริปต์เราต้องถอย 1 ขั้น
+    img_path = os.path.join(BASE_DIR, '..', raw_img_path)
     
     if not os.path.exists(img_path):
-        print(f"⚠️ ไม่พบไฟล์ภาพ: {img_path}")
+        print(f"⚠️ ข้าม: ไม่พบไฟล์ภาพที่ {img_path}")
         continue
         
     try:
-        # A. หาสภาพอากาศจาก weatherdb.csv
+        # A. หาสภาพอากาศ
         w_data = weather_df[weather_df['datetime'] == timestamp]
         if w_data.empty:
+            print(f"⚠️ ข้าม: ไม่พบข้อมูลสภาพอากาศของเวลา {timestamp} ในฐานข้อมูล")
             continue
+            
         w_row = w_data.iloc[0]
         
         # B. ใช้ AI ตัดเฉพาะท้องฟ้า
@@ -68,24 +75,21 @@ for index, row in metadata_df.iterrows():
         inputs = processor(images=image, return_tensors="pt")
         outputs = model(**inputs)
         logits = outputs.logits
-        # ขยายผลลัพธ์ให้ขนาดเท่าภาพเดิม
+        
         upsampled_logits = torch.nn.functional.interpolate(
             logits, size=image.size[::-1], mode="bilinear", align_corners=False
         )
         pred_seg = upsampled_logits.argmax(dim=1)[0].numpy()
         
-        # ใน ADE20K Dataset รหัสของ "ท้องฟ้า" (Sky) คือ 2
         sky_mask = (pred_seg == 2).astype(np.uint8)
-        
         img_cv = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
         
-        if np.sum(sky_mask) > 0: # ถ้าเจอท้องฟ้าในภาพ
-            # คำนวณค่าเฉลี่ยสีเฉพาะบริเวณที่เป็นท้องฟ้า
+        if np.sum(sky_mask) > 0:
             mean_bgr = cv2.mean(img_cv, mask=sky_mask)
             b_mean, g_mean, r_mean = mean_bgr[0], mean_bgr[1], mean_bgr[2]
             h_mean, s_mean, v_mean = rgb_to_hsv_mean(r_mean, g_mean, b_mean)
         else:
-            print(f"⚠️ ไม่พบท้องฟ้าในภาพ {img_path} (อาจถูกบังทึบ)")
+            print(f"⚠️ ข้าม: AI มองไม่เห็นท้องฟ้าในภาพ {img_path}")
             continue
 
         # C. จัดกลุ่มและบันทึก
@@ -93,7 +97,7 @@ for index, row in metadata_df.iterrows():
         
         final_records.append({
             'timestamp': timestamp,
-            'image_path': img_path,
+            'image_path': raw_img_path, # บันทึก path ต้นฉบับกลับไป
             'R_mean': round(r_mean, 2), 'G_mean': round(g_mean, 2), 'B_mean': round(b_mean, 2),
             'H_mean': round(h_mean, 2), 'S_mean': round(s_mean, 2), 'V_mean': round(v_mean, 2),
             'env_temp': w_row.get('temp', 0),
@@ -104,10 +108,10 @@ for index, row in metadata_df.iterrows():
             'env_solarradiation': w_row.get('solarradiation', 0),
             'label': label
         })
-        print(f"✅ ประมวลผลสำเร็จ: {img_path} -> Label: {label}")
+        print(f"✅ ประมวลผลสำเร็จ: {raw_img_path}")
         
     except Exception as e:
-        print(f"❌ Error in processing {img_path}: {e}")
+        print(f"❌ Error in processing {raw_img_path}: {e}")
 
 # 3. บันทึกผลลัพธ์เป็น model_db.csv สำหรับการเทรน Machine Learning ในขั้นต่อไป
 output_path = os.path.join(BASE_DIR, '..', 'data', 'model_db.csv')
