@@ -320,10 +320,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 const weatherInfo = await fetchHistoricalWeather(inputTime);
                 if (weatherInfo.status === "Error") continue;
 
-                // เปลี่ยนนามสกุลไฟล์ที่อัปโหลดให้เป็น .jpg เสมอ
-                const originalName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
-                const uniqueFilename = `${Date.now()}_${originalName}.jpg`;
-                const fullImagePath = `${imgFolder}/${uniqueFilename}`; 
+                // 🌟 ดึงเวลามาแปลงสัญลักษณ์ ':' เป็น '_' เพื่อใช้ตั้งชื่อไฟล์ให้ปลอดภัย
+                // เช่น "2025-01-01T14:30" จะกลายเป็น "2025-01-01T14_30.jpg"
+                const safeTimeStr = inputTime.replace(/:/g, '_');
+                const uniqueFilename = `${safeTimeStr}.jpg`;
+                const fullImagePath = `${imgFolder}/${uniqueFilename}`;
                 
                 // สร้างพรีวิวสำหรับหน้าเว็บ
                 const previewUrl = URL.createObjectURL(file);
@@ -359,13 +360,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 `;
                 tbody.appendChild(row);
 
-                // เก็บ Metadata เพื่อเตรียมต่อท้ายใน raw_metadata.csv
-                globalModel.records.push({
-                    image_path: fullImagePath,
-                    timestamp: inputTime,
-                    label: weatherInfo.label
-                });
-
                 globalModel.pendingUploads.push({
                     fileData: file,
                     uploadPath: fullImagePath
@@ -388,7 +382,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('saveModelBtn').addEventListener('click', async function() {
         const owner = document.getElementById('ghOwner').value;
         const repo = document.getElementById('ghRepo').value;
-        const path = 'data/raw_metadata.csv';
         const token = document.getElementById('ghToken').value;
 
         if(!owner || !repo || !token) return alert("กรุณากรอกข้อมูล GitHub ให้ครบ");
@@ -397,56 +390,27 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             const totalFiles = globalModel.pendingUploads.length;
             
-            // 1. แปลงรูปเป็น JPG และอัปโหลด
+            // อัปโหลดรูปภาพทั้งหมด
             for (let i = 0; i < totalFiles; i++) {
                 document.getElementById('loadingText').innerText = `กำลังแปลงไฟล์และอัปโหลดรูปภาพที่ ${i+1}/${totalFiles}...`;
                 const uploadItem = globalModel.pendingUploads[i];
                 
-                // แปลงไฟล์เป็น JPG Base64 ทันทีก่อนอัปโหลด
                 const base64Jpg = await convertToJPG(uploadItem.fileData);
-                
                 const url = `https://api.github.com/repos/${owner}/${repo}/contents/${uploadItem.uploadPath}`;
+                
                 await fetch(url, {
                     method: "PUT",
                     headers: { "Authorization": `token ${token}`, "Content-Type": "application/json" },
-                    body: JSON.stringify({ message: `Upload JPG image via ML Web UI`, content: base64Jpg })
+                    body: JSON.stringify({ message: `Upload image ${uploadItem.uploadPath}`, content: base64Jpg })
                 });
             }
 
-            // 2. อัปเดตไฟล์ข้อมูลภาพตั้งต้น (raw_metadata.csv)
-            document.getElementById('loadingText').innerText = "กำลังอัปเดตไฟล์ข้อมูล (CSV)...";
-            const dbUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
-            const headers = { "Authorization": `token ${token}`, "Content-Type": "application/json" };
-            
-            let sha = null;
-            let existingCsv = "image_path,timestamp\n"; // Header เริ่มต้น
+            alert(`☁️ อัปโหลดเสร็จสมบูรณ์! ไฟล์รูปภาพถูกส่งขึ้น GitHub แล้ว`);
+            document.getElementById('trainForm').reset();
+            document.getElementById('fileListContainer').innerHTML = '';
+            document.getElementById('dateTimeInputSection').style.display = 'none';
+            document.getElementById('resultSection').style.display = 'none';
 
-            try {
-                const getRes = await fetch(dbUrl, { headers });
-                if (getRes.ok) {
-                    const getJson = await getRes.json();
-                    sha = getJson.sha; 
-                    // Decode Base64 ของ CSV ที่มีอยู่เดิม
-                    existingCsv = decodeURIComponent(escape(atob(getJson.content)));
-                }
-            } catch (e) { console.log("สร้างไฟล์ CSV ใหม่"); }
-
-            // นำข้อมูลใหม่ต่อท้าย CSV
-            let newRows = globalModel.records.map(r => `${r.image_path},${r.timestamp}`).join('\n');
-            if (newRows) newRows = (existingCsv.endsWith('\n') ? '' : '\n') + newRows + '\n';
-            const combinedCsv = existingCsv + newRows;
-
-            const base64Content = btoa(unescape(encodeURIComponent(combinedCsv)));
-            const putBody = { message: `Update metadata DB`, content: base64Content };
-            if (sha) putBody.sha = sha; 
-
-            const putRes = await fetch(dbUrl, { method: "PUT", headers, body: JSON.stringify(putBody) });
-
-            if(putRes.ok) {
-                alert(`☁️ อัปโหลดเสร็จสมบูรณ์! ไฟล์ทั้งหมดถูกลดขนาดเป็น JPG แล้ว`);
-            } else {
-                alert("❌ เกิดข้อผิดพลาดในการอัปเดตฐานข้อมูล");
-            }
         } catch(e) { 
             alert("❌ Error: " + e.message); 
         }
