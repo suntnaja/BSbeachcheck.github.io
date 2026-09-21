@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 import torch
 import os
+import glob
 from transformers import SegformerImageProcessor, SegformerForSemanticSegmentation
 from PIL import Image
 
@@ -17,60 +18,64 @@ def classify_weather(row):
     cond = str(row.get('conditions', '')).lower()
     
     if precip > 0 or 'rain' in cond or 'storm' in cond or (cloudcover > 85 and solar < 100):
-        return 3 # ฟ้ามืด
+        return 3
     elif cloudcover > 70 and solar < 300:
-        return 2 # ฟ้าหม่น
+        return 2
     elif cloudcover >= 30 or (cloudcover > 70 and solar >= 300):
-        return 1 # ฟ้ามีเมฆ
+        return 1
     else:
-        return 0 # ฟ้าโปร่ง
+        return 0
 
 print("กำลังโหลดโมเดล AI แยกชิ้นส่วนท้องฟ้า (SegFormer)...")
 processor = SegformerImageProcessor.from_pretrained("nvidia/segformer-b0-finetuned-ade-512-512")
 model = SegformerForSemanticSegmentation.from_pretrained("nvidia/segformer-b0-finetuned-ade-512-512")
 
-# 1. โหลดข้อมูล Metadata ที่ได้จากเว็บ และฐานข้อมูลสภาพอากาศ
+# ==========================================
+# 🌟 ตั้งค่าตำแหน่งโฟลเดอร์ (ปรับแก้ได้ตามความจริง)
+# ==========================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# โฟลเดอร์ที่เก็บรูปภาพ (สมมติว่าอยู่นอกสุด ชื่อโฟลเดอร์ images)
+IMAGE_DIR = os.path.join(BASE_DIR, '..', 'images') 
+# ฐานข้อมูลสภาพอากาศ
+WEATHER_PATH = os.path.join(BASE_DIR, '..', 'data', 'weatherdb_2.csv')
+# ปลายทางไฟล์ผลลัพธ์
+OUTPUT_PATH = os.path.join(BASE_DIR, '..', 'data', 'model_db.csv')
+
+# 1. โหลดข้อมูลฐานข้อมูลสภาพอากาศ
 try:
-    # ถอย 1 ขั้น แล้วเข้าโฟลเดอร์ data (ปรับแก้ตามโครงสร้างจริงของคุณ)
-    metadata_path = os.path.join(BASE_DIR, '..', 'data', 'raw_metadata.csv')
-    weather_path = os.path.join(BASE_DIR, '..', 'data', 'weatherdb.csv')
-    
-    metadata_df = pd.read_csv(metadata_path) 
-    weather_df = pd.read_csv(weather_path)
-    weather_df['datetime'] = weather_df['datetime'].str.slice(0, 16) #[cite: 4]
+    weather_df = pd.read_csv(WEATHER_PATH)
+    weather_df['datetime'] = weather_df['datetime'].str.slice(0, 16)
 except Exception as e:
-    print(f"เกิดข้อผิดพลาดในการโหลดไฟล์ CSV: {e}")
+    print(f"❌ เกิดข้อผิดพลาดในการโหลดไฟล์ CSV สภาพอากาศ: {e}")
+    exit()
+
+# 2. กวาดไฟล์รูปภาพทั้งหมดในโฟลเดอร์
+image_files = glob.glob(os.path.join(IMAGE_DIR, "*.jpg"))
+if not image_files:
+    print(f"⚠️ ไม่พบไฟล์ภาพ .jpg ในโฟลเดอร์ {IMAGE_DIR} เลย")
     exit()
 
 final_records = []
+print(f"เจอภาพทั้งหมด {len(image_files)} ไฟล์ เริ่มวิเคราะห์...")
 
-# 2. เริ่มกระบวนการวิเคราะห์ทีละภาพ
-print("เริ่มกระบวนการวิเคราะห์และสกัดสีจากภาพ...")
-for index, row in metadata_df.iterrows():
-    raw_img_path = row['image_path']
-    # บังคับตัดเวลาให้เหลือ 16 ตัวอักษร (YYYY-MM-DDTHH:mm) เพื่อให้เทียบกันได้ชัวร์ๆ
-    timestamp = str(row['timestamp'])[:16] 
+for img_path in image_files:
+    # ดึงเฉพาะชื่อไฟล์ เช่น "2025-01-01T14_30.jpg"
+    filename = os.path.basename(img_path)
     
-    # 🌟 แก้ไข 1: แปลง Path รูปภาพให้เป็น Absolute Path (อ้างอิงจาก BASE_DIR)
-    # สมมติว่า raw_img_path คือ "images/pic.jpg" และสคริปต์เราต้องถอย 1 ขั้น
-    img_path = os.path.join(BASE_DIR, '..', raw_img_path)
+    # ถอดรหัสเวลา: ตัด .jpg ออก และเปลี่ยน _ กลับเป็น : (กลายเป็น 2025-01-01T14:30)
+    timestamp = filename.replace('.jpg', '').replace('_', ':')
     
-    if not os.path.exists(img_path):
-        print(f"⚠️ ข้าม: ไม่พบไฟล์ภาพที่ {img_path}")
-        continue
-        
     try:
-        # A. หาสภาพอากาศ
+        # A. จับคู่สภาพอากาศ
         w_data = weather_df[weather_df['datetime'] == timestamp]
         if w_data.empty:
-            print(f"⚠️ ข้าม: ไม่พบข้อมูลสภาพอากาศของเวลา {timestamp} ในฐานข้อมูล")
+            print(f"⚠️ ข้าม: {filename} -> ไม่พบข้อมูลสภาพอากาศเวลา {timestamp}")
             continue
             
         w_row = w_data.iloc[0]
         
-        # B. ใช้ AI ตัดเฉพาะท้องฟ้า
+        # B. ตัดขอบฟ้าและสกัดสี
         image = Image.open(img_path).convert("RGB")
         inputs = processor(images=image, return_tensors="pt")
         outputs = model(**inputs)
@@ -89,7 +94,7 @@ for index, row in metadata_df.iterrows():
             b_mean, g_mean, r_mean = mean_bgr[0], mean_bgr[1], mean_bgr[2]
             h_mean, s_mean, v_mean = rgb_to_hsv_mean(r_mean, g_mean, b_mean)
         else:
-            print(f"⚠️ ข้าม: AI มองไม่เห็นท้องฟ้าในภาพ {img_path}")
+            print(f"⚠️ ข้าม: {filename} -> AI มองไม่เห็นท้องฟ้าในภาพ")
             continue
 
         # C. จัดกลุ่มและบันทึก
@@ -97,7 +102,7 @@ for index, row in metadata_df.iterrows():
         
         final_records.append({
             'timestamp': timestamp,
-            'image_path': raw_img_path, # บันทึก path ต้นฉบับกลับไป
+            'image_path': f"images/{filename}", # เซฟ path รูปภาพเผื่อนำไปใช้แสดงผล
             'R_mean': round(r_mean, 2), 'G_mean': round(g_mean, 2), 'B_mean': round(b_mean, 2),
             'H_mean': round(h_mean, 2), 'S_mean': round(s_mean, 2), 'V_mean': round(v_mean, 2),
             'env_temp': w_row.get('temp', 0),
@@ -108,12 +113,16 @@ for index, row in metadata_df.iterrows():
             'env_solarradiation': w_row.get('solarradiation', 0),
             'label': label
         })
-        print(f"✅ ประมวลผลสำเร็จ: {raw_img_path}")
+        print(f"✅ สำเร็จ: {filename} (Label {label})")
         
     except Exception as e:
-        print(f"❌ Error in processing {raw_img_path}: {e}")
+        print(f"❌ Error {filename}: {e}")
 
-# 3. บันทึกผลลัพธ์เป็น model_db.csv สำหรับการเทรน Machine Learning ในขั้นต่อไป
-output_path = os.path.join(BASE_DIR, '..', 'data', 'model_db.csv')
-final_df = pd.DataFrame(final_records) #[cite: 4]
-final_df.to_csv(output_path, index=False, encoding='utf-8-sig') #[cite: 4]
+# 3. บันทึกผลลัพธ์ลง model_db.csv
+if final_records:
+    final_df = pd.DataFrame(final_records)
+    final_df = final_df.sort_values('timestamp').reset_index(drop=True) # เรียงตามเวลาให้สวยงาม
+    final_df.to_csv(OUTPUT_PATH, index=False, encoding='utf-8-sig')
+    print(f"\n🎉 เสร็จสิ้น! ข้อมูลทั้งหมดถูกอัปเดตลง {OUTPUT_PATH}")
+else:
+    print("\n⚠️ ไม่มีข้อมูลภาพใดผ่านกระบวนการได้สำเร็จเลย (ไฟล์ model_db.csv จะไม่ถูกอัปเดต)")
