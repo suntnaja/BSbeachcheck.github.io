@@ -370,7 +370,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('saveModelBtn').addEventListener('click', async function() {
         const owner = document.getElementById('ghOwner').value;
         const repo = document.getElementById('ghRepo').value;
-        const path = document.getElementById('ghPath').value.replace('.json', '.csv'); // บังคับเซฟเป็น CSV
+        const path = 'train/raw_metadata.csv';
         const token = document.getElementById('ghToken').value;
 
         if(!owner || !repo || !token) return alert("กรุณากรอกข้อมูล GitHub ให้ครบ");
