@@ -29,7 +29,7 @@ jobs:
           pip install pandas numpy scikit-learn joblib
 
       - name: Run Training Script
-        run: python train_model.py
+        run: python train/train_model.py
 
       - name: Commit and Push Updated Model
         run: |
