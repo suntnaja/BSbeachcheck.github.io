@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import joblib
+import os
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, mean_absolute_error
@@ -124,9 +125,12 @@ def train_and_evaluate(df):
     return combined_model
 
 if __name__ == "__main__":
-    # 🌟 ปรับปรุง: เปลี่ยนชื่อไฟล์เป้าหมายเป็น .csv
+    # 🌟 ประกาศตัวแปร csv_path เพื่อรับค่า
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    os.path.join(BASE_DIR, '..', 'data', 'model_db.csv')
+    csv_path = os.path.join(BASE_DIR, '..', 'data', 'model_db.csv')
+    
+    # กำหนดตำแหน่งเซฟโมเดลให้อยู่ในโฟลเดอร์เดียวกับโค้ด
+    model_filename = os.path.join(BASE_DIR, '..', 'data', 'sky_weather_rf_model.pkl')
     
     try:
         df_dataset = load_and_prepare_data(csv_path)
@@ -135,7 +139,6 @@ if __name__ == "__main__":
             print(f"⚠️ ข้อมูลใน {csv_path} มีน้อยเกินไป (น้อยกว่า 10 รูป) แนะนำให้เก็บเพิ่มก่อน")
         else:
             trained_model = train_and_evaluate(df_dataset)
-            model_filename = 'sky_weather_rf_model.pkl'
             
             # บันทึกเป็นไฟล์เดียว แต่ข้างในบรรจุโมเดล 2 ชิ้น
             joblib.dump(trained_model, model_filename)
