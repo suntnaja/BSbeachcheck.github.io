@@ -329,15 +329,33 @@ document.addEventListener("DOMContentLoaded", () => {
                 const previewUrl = URL.createObjectURL(file);
 
                 // แสดงผลบนหน้าเว็บ (แสดงแค่ข้อมูล ไม่โชว์ค่าสีแล้ว)
+                let badgeClass = "";
+                let badgeText = "";
+                switch(weatherInfo.label) {
+                    case 0: badgeClass = "bg-primary text-white"; badgeText = "กลุ่ม 0 (ฟ้าโปร่ง)"; break;
+                    case 1: badgeClass = "bg-info text-dark"; badgeText = "กลุ่ม 1 (ฟ้ามีเมฆ)"; break;
+                    case 2: badgeClass = "bg-secondary text-white"; badgeText = "กลุ่ม 2 (ฟ้าหม่น)"; break;
+                    case 3: badgeClass = "bg-dark text-white"; badgeText = "กลุ่ม 3 (ฟ้ามืด)"; break;
+                }
+
+                // อัปเดตตาราง HTML (แสดงข้อมูลสภาพอากาศแบบละเอียด + ลบคอลัมน์สีออก)
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td><img src="${previewUrl}" style="width:70px; height:70px; object-fit:cover; border-radius:8px;"></td>
                     <td>
-                        <div class="fw-bold">${inputTime.replace('T', ' ')}</div>
-                        <div class="text-primary">${weatherInfo.status} ${weatherInfo.icon}</div>
+                        <img src="${previewUrl}" style="width:70px; height:70px; object-fit:cover; border-radius:8px; border: 1px solid #ddd;">
                     </td>
-                    <td><span class="badge bg-secondary">รอ Python สกัดสีจากภาพเต็ม</span></td>
-                    <td>${weatherInfo.label} (กลุ่ม ${weatherInfo.status})</td>
+                    <td>
+                        <div class="fw-bold text-muted" style="font-size: 0.85em;">${inputTime.replace('T', ' ')}</div>
+                        <div class="fw-bold mt-1 text-primary">${weatherInfo.status} ${weatherInfo.icon}</div>
+                        <div style="font-size: 0.8em; color: #555; margin-top: 4px;">
+                            🌡️ อุณหภูมิ: ${weatherInfo.tc}°C | 💧 ความชื้น: ${weatherInfo.rh}%<br>
+                            🌧️ ปริมาณฝน: ${weatherInfo.precip} mm | ☀️ รังสี: ${weatherInfo.solarradiation} W/m²<br>
+                            ☁️ เมฆปกคลุม: ${weatherInfo.cloudcover}% | 👀 ทัศนวิสัย: ${weatherInfo.visibility} km
+                        </div>
+                    </td>
+                    <td class="text-center align-middle">
+                        <span class="badge ${badgeClass} px-3 py-2">${badgeText}</span>
+                    </td>
                 `;
                 tbody.appendChild(row);
 
