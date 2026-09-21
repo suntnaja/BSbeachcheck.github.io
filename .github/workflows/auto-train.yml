@@ -4,7 +4,7 @@ name: Auto Train ML Model
 on:
   push:
     paths:
-      - 'model_db.csv'
+      - 'data/model_db.csv'
 
 jobs:
   train-and-save:
