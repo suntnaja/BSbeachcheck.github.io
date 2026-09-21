@@ -32,7 +32,7 @@ model = SegformerForSemanticSegmentation.from_pretrained("nvidia/segformer-b0-fi
 # 1. โหลดข้อมูล Metadata ที่ได้จากเว็บ และฐานข้อมูลสภาพอากาศ
 try:
     metadata_df = pd.read_csv("raw_metadata.csv") # ได้มาจาก Github
-    weather_df = pd.read_csv("weatherdb_2.csv")
+    weather_df = pd.read_csv("weatherdb.csv")
     weather_df['datetime'] = weather_df['datetime'].str.slice(0, 16) # ปรับให้รูปแบบตรงกัน
 except Exception as e:
     print(f"เกิดข้อผิดพลาดในการโหลดไฟล์ CSV: {e}")
@@ -51,7 +51,7 @@ for index, row in metadata_df.iterrows():
         continue
         
     try:
-        # A. หาสภาพอากาศจาก weatherdb_2.csv
+        # A. หาสภาพอากาศจาก weatherdb.csv
         w_data = weather_df[weather_df['datetime'] == timestamp]
         if w_data.empty:
             continue
