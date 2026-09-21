@@ -36,14 +36,14 @@ jobs:
       # ---------------------------------------------------------
       - name: ⚙️ Step 1 - Run Data Pipeline
         run: |
-          python data/data_pipeline.py
+          python train/data_pipeline.py
 
       # ---------------------------------------------------------
       # ลำดับที่ 2: รันสคริปต์เทรนโมเดล (อ่าน model_db.csv -> สร้าง .pkl)
       # ---------------------------------------------------------
       - name: 🧠 Step 2 - Run Training Script
         run: |
-          python data/train_model.py
+          python train/train_model.py
 
       # ---------------------------------------------------------
       # ลำดับที่ 3: บันทึกไฟล์ทั้งหมดกลับขึ้น GitHub
