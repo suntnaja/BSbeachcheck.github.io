@@ -1,4 +1,3 @@
-import json
 import pandas as pd
 import numpy as np
 import joblib
@@ -6,13 +5,11 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, mean_absolute_error
 
-def load_and_prepare_data(json_file_path):
-    print(f"กำลังอ่านข้อมูลจากไฟล์: {json_file_path}...")
+def load_and_prepare_data(csv_file_path):
+    print(f"กำลังอ่านข้อมูลจากไฟล์: {csv_file_path}...")
     
-    with open(json_file_path, 'r', encoding='utf-8') as file:
-        data = json.load(file)
-        
-    df = pd.DataFrame(data)
+    # 🌟 ปรับปรุง: ใช้ Pandas อ่านไฟล์ CSV โดยตรง
+    df = pd.read_csv(csv_file_path)
     print(f"จำนวนข้อมูลทั้งหมดที่โหลดได้: {len(df)} รายการ")
     
     required_columns = [
@@ -40,14 +37,14 @@ def load_and_prepare_data(json_file_path):
 def train_and_evaluate(df):
     print("\nเริ่มกระบวนการ Train โมเดล 2 ระบบ (ทำนายสภาพอากาศ + ทำนายค่าสี)...")
     
-    # 🌟 ตัวแปรต้น (Features) ตอนนี้ใช้แค่สภาพอากาศล้วนๆ
+    # ตัวแปรต้น (Features) ตอนนี้ใช้แค่สภาพอากาศล้วนๆ
     features = [
         'env_temp', 'env_humidity', 'env_precip', 'env_cloudcover', 'env_visibility', 'env_solarradiation'
     ]
     
     X = df[features]
     
-    # 🌟 ตัวแปรตาม (Targets) แยกเป็น 2 ชุด
+    # ตัวแปรตาม (Targets) แยกเป็น 2 ชุด
     y_label = df['label'] # สำหรับ Classifier
     y_colors = df[['R_mean', 'G_mean', 'B_mean', 'H_mean', 'S_mean', 'V_mean']] # สำหรับ Regressor
     
@@ -71,12 +68,12 @@ def train_and_evaluate(df):
     y_label_pred = clf_model.predict(X_test)
     print(f"ความแม่นยำรวม (Accuracy): {accuracy_score(y_label_test, y_label_pred) * 100:.2f}%\n")
     
-    # 🌟 ปรับปรุง: อัปเดตรายชื่อกลุ่มให้ครบ 4 หมวด
+    # อัปเดตรายชื่อกลุ่มให้ครบ 4 หมวด
     target_names = ["Clear (0)", "Cloudy (1)", "Gloomy (2)", "Dark (3)"]
     
     try:
         print("รายละเอียดการแยกคลาส (Classification Report):")
-        # แจ้งชื่อคลาสโดยจำกัดตามจำนวนคลาสที่พบใน y_label_test จริง (ป้องกัน Error กรณีข้อมูลบางกลุ่มขาดหาย)
+        # แจ้งชื่อคลาสโดยจำกัดตามจำนวนคลาสที่พบใน y_label_test จริง
         unique_labels = sorted(y_label_test.unique())
         actual_target_names = [target_names[i] for i in unique_labels]
         print(classification_report(y_label_test, y_label_pred, target_names=actual_target_names))
@@ -127,13 +124,14 @@ def train_and_evaluate(df):
     return combined_model
 
 if __name__ == "__main__":
-    json_path = 'model_db.json'
+    # 🌟 ปรับปรุง: เปลี่ยนชื่อไฟล์เป้าหมายเป็น .csv
+    csv_path = 'model_db.csv'
     
     try:
-        df_dataset = load_and_prepare_data(json_path)
+        df_dataset = load_and_prepare_data(csv_path)
         
         if len(df_dataset) < 10:
-            print("⚠️ ข้อมูลใน model_db.json มีน้อยเกินไป (น้อยกว่า 10 รูป) แนะนำให้เก็บเพิ่มก่อน")
+            print(f"⚠️ ข้อมูลใน {csv_path} มีน้อยเกินไป (น้อยกว่า 10 รูป) แนะนำให้เก็บเพิ่มก่อน")
         else:
             trained_model = train_and_evaluate(df_dataset)
             model_filename = 'sky_weather_rf_model.pkl'
@@ -145,6 +143,6 @@ if __name__ == "__main__":
             print(f"ไฟล์ถูกเก็บไว้ที่: {model_filename}")
             
     except FileNotFoundError:
-        print(f"❌ ไม่พบไฟล์ '{json_path}'")
+        print(f"❌ ไม่พบไฟล์ '{csv_path}'")
     except Exception as e:
         print(f"❌ เกิดข้อผิดพลาด: {e}")
