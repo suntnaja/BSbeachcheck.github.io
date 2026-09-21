@@ -24,7 +24,7 @@ let dbMaxDate = "";
 
 async function fetchDateRangeFromDB() {
     try {
-        const response = await fetch('data/weatherdb.csv'); // ชื่อไฟล์ฐานข้อมูลปัจจุบัน
+        const response = await fetch('../data/weatherdb.csv'); // ชื่อไฟล์ฐานข้อมูลปัจจุบัน
         if (!response.ok) throw new Error("ไม่พบไฟล์ฐานข้อมูล");
         
         const csvText = await response.text();
@@ -59,8 +59,8 @@ async function fetchHistoricalWeather(datetimeStr) {
         const targetDateStr = `${year}-${month}-${day}T${hour}:00:00`;
 
         // 2. อ่านไฟล์ CSV 
-        const response = await fetch('data/weatherdb.csv');
-        if (!response.ok) throw new Error("ไม่สามารถอ่านไฟล์ data/weatherdb.csv ได้ (โปรดตรวจสอบว่าไฟล์อยู่ในโฟลเดอร์เดียวกัน)");
+        const response = await fetch('../data/weatherdb.csv');
+        if (!response.ok) throw new Error("ไม่สามารถอ่านไฟล์ weatherdb.csv ได้ (โปรดตรวจสอบว่าไฟล์อยู่ในโฟลเดอร์เดียวกัน)");
         
         const csvText = await response.text();
         const rows = csvText.split('\n');
