@@ -1,13 +1,12 @@
 name: 🚀 Auto Run Data Pipeline
 
-# 1. กำหนดเงื่อนไขการทำงาน (Trigger)
 on:
   push:
     branches:
-      - main # หรือ master (เปลี่ยนให้ตรงกับ branch หลักของคุณ)
+      - main 
     paths:
-      - 'data/raw_metadata.csv' # สั่งให้รันเฉพาะเมื่อไฟล์ข้อมูลอัปเดต (เวลาหน้าเว็บกด Save)
-      - 'images/**'        # หรือเมื่อมีรูปภาพใหม่เข้ามาในโฟลเดอร์ images
+      # 🌟 สั่งให้ทำงานก็ต่อเมื่อมีการอัปโหลดไฟล์เข้ามาในโฟลเดอร์ images เท่านั้น
+      - 'images/**'
 
 # 2. ตั้งค่าสิทธิ์ให้ Action สามารถเซฟไฟล์ทับกลับลงไปใน GitHub ได้
 permissions:
