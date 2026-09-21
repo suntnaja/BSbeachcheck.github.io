@@ -31,9 +31,18 @@ model = SegformerForSemanticSegmentation.from_pretrained("nvidia/segformer-b0-fi
 
 # 1. โหลดข้อมูล Metadata ที่ได้จากเว็บ และฐานข้อมูลสภาพอากาศ
 try:
-    metadata_df = pd.read_csv("../data/raw_metadata.csv") # ได้มาจาก Github
-    weather_df = pd.read_csv("../data/weatherdb.csv")
-    weather_df['datetime'] = weather_df['datetime'].str.slice(0, 16) # ปรับให้รูปแบบตรงกัน
+    # 🌟 สร้าง Path ที่ถูกต้องโดยอ้างอิงจากโฟลเดอร์ที่สคริปต์อยู่
+    # ตัวอย่างนี้สมมติว่า data_pipeline.py อยู่ในโฟลเดอร์ backend/ และต้องการดึงไฟล์จาก data/ ที่อยู่ระดับเดียวกัน
+    metadata_path = os.path.join(BASE_DIR, '..', 'data', 'raw_metadata.csv')
+    weather_path = os.path.join(BASE_DIR, '..', 'data', 'weatherdb_2.csv') # ปรับโฟลเดอร์ตามจริง
+    
+    print(f"กำลังอ่านไฟล์จาก: {metadata_path}")
+    metadata_df = pd.read_csv(metadata_path) 
+    
+    print(f"กำลังอ่านไฟล์จาก: {weather_path}")
+    weather_df = pd.read_csv(weather_path) 
+    weather_df['datetime'] = weather_df['datetime'].str.slice(0, 16)
+
 except Exception as e:
     print(f"เกิดข้อผิดพลาดในการโหลดไฟล์ CSV: {e}")
     exit()
