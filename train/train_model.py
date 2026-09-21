@@ -125,7 +125,7 @@ def train_and_evaluate(df):
 
 if __name__ == "__main__":
     # 🌟 ปรับปรุง: เปลี่ยนชื่อไฟล์เป้าหมายเป็น .csv
-    csv_path = 'data/model_db.csv'
+    csv_path = '../data/model_db.csv'
     
     try:
         df_dataset = load_and_prepare_data(csv_path)
