@@ -38,7 +38,7 @@ jobs:
       # Step 4: สั่งรันสคริปต์ Python
       - name: ⚙️ Run data pipeline
         run: |
-          python data_pipeline.py
+          python train/data_pipeline.py
 
       # Step 5: นำไฟล์ model_db.csv ที่ได้จากการสกัดสี เซฟและ Push กลับขึ้น GitHub
       - name: 💾 Commit and Push results
