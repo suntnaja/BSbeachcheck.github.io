@@ -31,21 +31,20 @@ processor = SegformerImageProcessor.from_pretrained("nvidia/segformer-b0-finetun
 model = SegformerForSemanticSegmentation.from_pretrained("nvidia/segformer-b0-finetuned-ade-512-512")
 
 # ==========================================
-# 🌟 ตั้งค่าตำแหน่งโฟลเดอร์ (ปรับแก้ได้ตามความจริง)
+# 🌟 ตั้งค่าตำแหน่งโฟลเดอร์
 # ==========================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# โฟลเดอร์ที่เก็บรูปภาพ (สมมติว่าอยู่นอกสุด ชื่อโฟลเดอร์ images)
 IMAGE_DIR = os.path.join(BASE_DIR, '..', 'images') 
-# ฐานข้อมูลสภาพอากาศ
-WEATHER_PATH = os.path.join(BASE_DIR, '..', 'data', 'weatherdb.csv')
-# ปลายทางไฟล์ผลลัพธ์
+WEATHER_PATH = os.path.join(BASE_DIR, '..', 'data', 'weatherdb.csv') # อ้างอิงตามชื่อไฟล์ของคุณ
 OUTPUT_PATH = os.path.join(BASE_DIR, '..', 'data', 'model_db.csv')
 
 # 1. โหลดข้อมูลฐานข้อมูลสภาพอากาศ
 try:
     weather_df = pd.read_csv(WEATHER_PATH)
-    weather_df['datetime'] = weather_df['datetime'].str.slice(0, 16)
+    # 🌟 ปรับปรุง: ตัดเวลาเก็บไว้แค่ระดับ "ชั่วโมง" (13 ตัวอักษร) เพื่อใช้จับคู่
+    # เช่น "2025-01-01T18:00:00" จะถูกตัดเหลือ "2025-01-01T18"
+    weather_df['match_time'] = weather_df['datetime'].str.slice(0, 13)
 except Exception as e:
     print(f"❌ เกิดข้อผิดพลาดในการโหลดไฟล์ CSV สภาพอากาศ: {e}")
     exit()
@@ -60,17 +59,20 @@ final_records = []
 print(f"เจอภาพทั้งหมด {len(image_files)} ไฟล์ เริ่มวิเคราะห์...")
 
 for img_path in image_files:
-    # ดึงเฉพาะชื่อไฟล์ เช่น "2025-01-01T14_30.jpg"
     filename = os.path.basename(img_path)
     
-    # ถอดรหัสเวลา: ตัด .jpg ออก และเปลี่ยน _ กลับเป็น : (กลายเป็น 2025-01-01T14:30)
-    timestamp = filename.replace('.jpg', '').replace('_', ':')
+    # ถอดรหัสเวลาจากชื่อไฟล์ เช่น "2026-02-02T18_07.jpg" เป็น "2026-02-02T18:07"
+    full_timestamp = filename.replace('.jpg', '').replace('_', ':')
+    
+    # 🌟 ปรับปรุง: ตัดเศษนาทีทิ้ง เอาแค่ 13 ตัวอักษรแรก (ระดับชั่วโมง) ไปค้นหา
+    # "2026-02-02T18:07" จะโดนตัดเหลือ "2026-02-02T18"
+    target_hour = full_timestamp[:13]
     
     try:
         # A. จับคู่สภาพอากาศ
-        w_data = weather_df[weather_df['datetime'] == timestamp]
+        w_data = weather_df[weather_df['match_time'] == target_hour]
         if w_data.empty:
-            print(f"⚠️ ข้าม: {filename} -> ไม่พบข้อมูลสภาพอากาศเวลา {timestamp}")
+            print(f"⚠️ ข้าม: {filename} -> ไม่พบข้อมูลสภาพอากาศของชั่วโมง {target_hour}")
             continue
             
         w_row = w_data.iloc[0]
@@ -101,8 +103,8 @@ for img_path in image_files:
         label = classify_weather(w_row)
         
         final_records.append({
-            'timestamp': timestamp,
-            'image_path': f"images/{filename}", # เซฟ path รูปภาพเผื่อนำไปใช้แสดงผล
+            'timestamp': full_timestamp, # บันทึกเวลาเต็มลง CSV เพื่อความแม่นยำ
+            'image_path': f"images/{filename}", 
             'R_mean': round(r_mean, 2), 'G_mean': round(g_mean, 2), 'B_mean': round(b_mean, 2),
             'H_mean': round(h_mean, 2), 'S_mean': round(s_mean, 2), 'V_mean': round(v_mean, 2),
             'env_temp': w_row.get('temp', 0),
@@ -113,7 +115,7 @@ for img_path in image_files:
             'env_solarradiation': w_row.get('solarradiation', 0),
             'label': label
         })
-        print(f"✅ สำเร็จ: {filename} (Label {label})")
+        print(f"✅ สำเร็จ: {filename} (เทียบกับสภาพอากาศเวลา {w_row['datetime']})")
         
     except Exception as e:
         print(f"❌ Error {filename}: {e}")
@@ -121,8 +123,8 @@ for img_path in image_files:
 # 3. บันทึกผลลัพธ์ลง model_db.csv
 if final_records:
     final_df = pd.DataFrame(final_records)
-    final_df = final_df.sort_values('timestamp').reset_index(drop=True) # เรียงตามเวลาให้สวยงาม
+    final_df = final_df.sort_values('timestamp').reset_index(drop=True)
     final_df.to_csv(OUTPUT_PATH, index=False, encoding='utf-8-sig')
     print(f"\n🎉 เสร็จสิ้น! ข้อมูลทั้งหมดถูกอัปเดตลง {OUTPUT_PATH}")
 else:
-    print("\n⚠️ ไม่มีข้อมูลภาพใดผ่านกระบวนการได้สำเร็จเลย (ไฟล์ model_db.csv จะไม่ถูกอัปเดต)")
+    print("\n⚠️ ไม่มีข้อมูลภาพใดผ่านกระบวนการได้สำเร็จเลย")
