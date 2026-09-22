@@ -292,7 +292,7 @@
             const tensor = new ort.Tensor('float32', inputFeatures, [1, 6]);
 
             // 1. รันโมเดล Classifier (พยากรณ์สภาพฟ้า)
-            const sessionClassifier = await ort.InferenceSession.create('./weather_classifier.onnx');
+            const sessionClassifier = await ort.InferenceSession.create('./backend/data/weather_classifier.onnx');
             
             // ดึงชื่อ Output ตัวแรก ('label') และบังคับให้ session.run คืนค่าแค่อันเดียว
             const classifierOutputName = sessionClassifier.outputNames[0]; 
@@ -302,7 +302,7 @@
             const predictedLabel = Number(resultsClassifier[classifierOutputName].data[0]); 
 
             // 2. รันโมเดล Regressor (พยากรณ์สี)
-            const sessionRegressor = await ort.InferenceSession.create('./color_regressor.onnx');
+            const sessionRegressor = await ort.InferenceSession.create('./backend/data/color_regressor.onnx');
             
             // ดึงชื่อ Output ('variable')
             const regressorOutputName = sessionRegressor.outputNames[0];
