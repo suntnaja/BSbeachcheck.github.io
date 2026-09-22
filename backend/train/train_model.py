@@ -145,13 +145,13 @@ if __name__ == "__main__":
             
             # 1. แปลงและเซฟโมเดลทำนายสถานะสภาพอากาศ (Classifier)
             onnx_clf = convert_sklearn(trained_model['classifier'], initial_types=initial_type)
-            clf_path = os.path.join(BASE_DIR, 'weather_classifier.onnx')
+            clf_path = os.path.join(BASE_DIR, '..', 'data', 'weather_classifier.onnx')
             with open(clf_path, "wb") as f:
                 f.write(onnx_clf.SerializeToString())
                 
             # 2. แปลงและเซฟโมเดลทำนายค่าสี (Regressor)
             onnx_color = convert_sklearn(trained_model['color_predictor'], initial_types=initial_type)
-            color_path = os.path.join(BASE_DIR, 'color_regressor.onnx')
+            color_path = os.path.join(BASE_DIR, '..', 'data', 'color_regressor.onnx')
             with open(color_path, "wb") as f:
                 f.write(onnx_color.SerializeToString())
             
