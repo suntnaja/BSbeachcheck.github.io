@@ -163,12 +163,10 @@
 
     // 1. ดึงข้อมูลสภาพอากาศจาก TMD API
     async function fetchWeatherTMD(datetimeStr) {
-        // ใช้โดเมน Worker ของคุณจริงๆ (ลบ yourname ออก)
         const proxyUrl = "https://tmd-proxy.sunt8346.workers.dev";
         const lat = 13.28;
         const lon = 100.91;
 
-        // นำ proxyUrl มาต่อกับ Path ของ TMD ตรงๆ (ลบ /?url= ออก)
         const hourlyUrl = `${proxyUrl}/nwpapi/v1/forecast/location/hourly?lat=${lat}&lon=${lon}&fields=tc,rh,rain,cloudlow,cloudmed,cloudhigh`;
         const dailyUrl = `${proxyUrl}/nwpapi/v1/forecast/location/daily?lat=${lat}&lon=${lon}&fields=swdown`;
         
@@ -192,8 +190,36 @@
         const hourlyData = await hourlyResponse.json();
         const dailyData = await dailyResponse.json();
         
-        const h_data = hourlyData.WeatherForecasts?.[0]?.forecasts?.[0]?.data || {};
-        const d_data = dailyData.WeatherForecasts?.[0]?.forecasts?.[0]?.data || {};
+        // ================= ส่วนที่แก้ไขใหม่ =================
+        // แปลงเวลาที่ผู้ใช้เลือกเป็น Timestamp (มิลลิวินาที)
+        const targetTimestamp = new Date(datetimeStr).getTime();
+        
+        // ดึง Array ของรายการพยากรณ์ทั้งหมดออกมา
+        const h_forecasts = hourlyData.WeatherForecasts?.[0]?.forecasts || [];
+        const d_forecasts = dailyData.WeatherForecasts?.[0]?.forecasts || [];
+
+        // ฟังก์ชันย่อยสำหรับค้นหาข้อมูลที่เวลาตรงกันหรือใกล้เคียงที่สุด
+        function findClosestData(forecastArray, targetTime) {
+            let closestData = {};
+            let minDiff = Infinity;
+            
+            for (let item of forecastArray) {
+                if (item.time) {
+                    const itemTime = new Date(item.time).getTime();
+                    const diff = Math.abs(itemTime - targetTime);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        closestData = item.data || {};
+                    }
+                }
+            }
+            return closestData;
+        }
+
+        // ค้นหาข้อมูลรายชั่วโมงและรายวันที่ใกล้กับเวลาที่เลือกมากที่สุด
+        const h_data = findClosestData(h_forecasts, targetTimestamp);
+        const d_data = findClosestData(d_forecasts, targetTimestamp);
+        // ==================================================
         
         const temp = h_data.tc || 30;
         const humidity = h_data.rh || 70;
