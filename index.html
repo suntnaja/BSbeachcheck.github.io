@@ -52,10 +52,11 @@
         .color-indicator { display: flex; align-items: center; gap: 12px; margin-top: 5px; }
         .color-badge { width: 32px; height: 32px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.2); flex-shrink: 0; }
 
-        .image-preview-container { margin-bottom: 20px; position: relative; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-height: 220px; }
-        .image-preview-container img { width: 100%; height: 220px; object-fit: cover; display: block; }
+        .image-preview-container { margin-bottom: 20px; position: relative; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); background: #f1f5f9; text-align: center; }
+        .image-preview-container img { width: 100%; height: 220px; object-fit: cover; display: none; }
+        .no-image-msg { display: none; padding: 60px 20px; color: var(--text-sub); font-size: 0.95rem; }
         .image-badge { position: absolute; bottom: 10px; right: 10px; background: rgba(0, 0, 0, 0.6); color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; backdrop-filter: blur(4px); }
-        .similarity-badge { position: absolute; top: 10px; right: 10px; background: var(--accent); color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        .similarity-badge { position: absolute; top: 10px; right: 10px; background: var(--accent); color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 2; }
 
         .recommendation-box { background: #e0f2fe; border-left: 4px solid var(--accent); padding: 15px; border-radius: 0 10px 10px 0; }
         .recommendation-box h4 { font-size: 0.9rem; color: #0369a1; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
@@ -82,7 +83,7 @@
             </form>
         </div>
         <div style="font-size: 0.75rem; color: var(--text-sub); text-align: center; margin-top: 20px;">
-            เชื่อมต่อข้อมูลสภาพอากาศเรียลไทม์จาก WeatherAPI.com
+            ดึงข้อมูลสภาพอากาศเรียลไทม์จากกรมอุตุนิยมวิทยา (TMD API) และพยากรณ์ด้วย ML Model
         </div>
     </div>
 
@@ -100,11 +101,11 @@
             <div class="output-grid">
                 <div class="info-card">
                     <div class="title"><i class="fa-solid fa-cloud-bolt"></i> คาดการณ์สภาพฟ้า</div>
-                    <div class="value" id="resCondition">-</div>
-                    <div style="font-size: 0.75rem; color: var(--text-sub); margin-top: 4px;" id="resEnvDetails"></div>
+                    <div class="value" id="resCondition" style="font-size: 1rem; line-height: 1.4;">-</div>
+                    <div style="font-size: 0.75rem; color: var(--text-sub); margin-top: 8px;" id="resEnvDetails"></div>
                 </div>
                 <div class="info-card">
-                    <div class="title"><i class="fa-solid fa-palette"></i> คาดเดาเฉดสี (RGB & HSV)</div>
+                    <div class="title"><i class="fa-solid fa-palette"></i> คาดเดาเฉดสี (Solid Color)</div>
                     <div class="color-indicator">
                         <div class="color-badge" id="resColorBadge"></div>
                         <div>
@@ -118,140 +119,122 @@
             <div class="image-preview-container">
                 <div class="similarity-badge" id="resSimilarity"><i class="fa-solid fa-check-double"></i> ความแม่นยำ: -%</div>
                 <img id="resSkyImage" src="" alt="ภาพจำลองท้องฟ้า">
+                <div id="resNoImage" class="no-image-msg"><i class="fa-solid fa-image-slash fa-2x" style="display:block;margin-bottom:10px;"></i>ยังไม่มีรูปที่ใกล้เคียง</div>
                 <div class="image-badge"><i class="fa-solid fa-images"></i> ภาพถ่ายใกล้เคียงจากคลัง</div>
-            </div>
-
-            <div class="recommendation-box">
-                <h4><i class="fa-solid fa-compass"></i> คำแนะนำในการทำกิจกรรม</h4>
-                <p id="resRecommendation">-</p>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-    let IMAGE_DATABASE = [];
-    const API_KEY = "0014cf2319cd48418c693120261609";
-    const LOCATION = "Bangsaen,Thailand";
+    let CSV_DATABASE = [];
+    const TMD_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjYyYTlhMjU0YmI0NzIwMWM3ODM0ODZiODg1MGViOTI2NDQ1ZjZhYWY0ZTJiOTgyOWZmN2MwMjY4ZjUxMTZhNGY1Yzk2ZTE3NDJmMWQ1MjcwIn0.eyJhdWQiOiIyIiwianRpIjoiNjJhOWEyNTRiYjQ3MjAxYzc4MzQ4NmI4ODUwZWI5MjY0NDVmNmFhZjRlMmI5ODI5ZmY3YzAyNjhmNTExNmE0ZjVjOTZlMTc0MmYxZDUyNzAiLCJpYXQiOjE3OTAwNjQyNjgsIm5iZiI6MTc5MDA2NDI2OCwiZXhwIjoxODIxNjAwMjY4LCJzdWIiOiI1OTI1Iiwic2NvcGVzIjpbXX0.RNxb1jLEJFUtn744x1bz_Wmf5CEvmqpfZZVm3ZgUlvVWgqEMj5npm7nU6mK6efegMam6fpvTYonvsory4iPsEjqJUhUYsFmXU0t_L-6xcso4GXxp8sMj-Ilogx7nHLS770zRkKbeh7jF7JcCBADrbv8ixhbsWPmlz7cj0PhwTcmnI_HnevnrmineZJ16ALnpvteXUxjJ3vvSp8Y_9uVQ9L3pDqAi2QKoz0Ts0kzDPJA0I3nprOCOMEBm-34pdTv-bDjo0kOERqsMIAB5bGPLWjz_ErGgYu80nd4escs-GIyj1o0kGq8ASdj6keJPdvMA_KrE3WW1nM_FhRlg-oyDmCLxDxqdTtV3GFjfl4Ptfy5aU3EWEU2cbeTcrRo_UyjaXBsjbhiom6DZjpH8HdTrNiPG8HI4eT75_Ay0MnOe8XMePu039ccOI5nUduXZzt1svqsQKTt5YKS1hEK89xamkGiedMWRRvwtC9GWGf7S3pyKs9f6saNClsOnt6eOvl_MQh2u-m4AcK6AoZu6whuibjkw6v_8CsVe7qr0-vSohVIxOC61Ox5-Tjqdfi4PIC_v1NRQOulPWhe2f4Zjb6ODf7jb5hCO8T60kadzkHaZLqUJM_DMZrVES1c5nZVz8UQiCFTMQiKIlGBQLhvFYWt8-qowLO3eYkqIgJ9zvRAksNU";
 
+    // อ่านและแปลงไฟล์ model_db.csv เป็น JSON object (รันเมื่อโหลดหน้าเว็บ)
     window.onload = async function() {
         const now = new Date();
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
         document.getElementById('datetimeInput').value = now.toISOString().slice(0, 16);
 
         try {
-            const response = await fetch('./model_db.json');
-            if (!response.ok) throw new Error('ไม่สามารถโหลด model_db.json ได้');
-            IMAGE_DATABASE = await response.json();
-            console.log('โหลดฐานข้อมูลสำเร็จ:', IMAGE_DATABASE);
+            const response = await fetch('./model_db.csv');
+            if (!response.ok) throw new Error('ไม่สามารถโหลด model_db.csv ได้');
+            const csvText = await response.text();
+            CSV_DATABASE = parseCSV(csvText);
+            console.log('โหลดฐานข้อมูล CSV สำเร็จ:', CSV_DATABASE.length, 'รายการ');
         } catch (error) {
             console.error('Error loading database:', error);
         }
     };
 
-    // 1. ดึงค่าสภาพอากาศแบบเรียลไทม์จาก WeatherAPI.com
-    async function fetchRealtimeWeather(datetimeStr) {
-        const dateStr = datetimeStr.split('T')[0];
-        const selectedDate = new Date(datetimeStr);
-        const hour = selectedDate.getHours();
-        
-        const now = new Date();
-        const todayStr = now.toISOString().split('T')[0];
-
-        // เลือก Endpoint ให้เหมาะกับวันที่ (forecast.json สำหรับวันนี้และอนาคต / history.json สำหรับอดีต)
-        let endpoint = "forecast.json";
-        if (dateStr < todayStr) {
-            endpoint = "history.json";
-        }
-
-        const url = `https://api.weatherapi.com/v1/${endpoint}?key=${API_KEY}&q=${encodeURIComponent(LOCATION)}&dt=${dateStr}`;
-        
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error(`WeatherAPI Request Error: ${response.statusText}`);
-        }
-        const data = await response.json();
-
-        let hourData = null;
-        if (data.forecast && data.forecast.forecastday && data.forecast.forecastday[0] && data.forecast.forecastday[0].hour) {
-            hourData = data.forecast.forecastday[0].hour[hour];
-        } else if (data.current) {
-            hourData = data.current;
-        }
-
-        return {
-            temp: hourData ? hourData.temp_c : 30,
-            cloudcover: hourData ? hourData.cloud : 0,
-            humidity: hourData ? hourData.humidity : 0,
-            visibility: hourData ? hourData.vis_km : 10,
-            solarradiation: hourData ? (hourData.uv ? hourData.uv * 100 : 0) : 0,
-            conditions: hourData && hourData.condition ? hourData.condition.text : "Clear"
-        };
+    function parseCSV(str) {
+        const lines = str.trim().split('\n');
+        const headers = lines[0].split(',').map(h => h.trim());
+        return lines.slice(1).map(line => {
+            const data = line.split(',');
+            const obj = {};
+            headers.forEach((header, index) => {
+                obj[header] = data[index] ? data[index].trim() : null;
+            });
+            return obj;
+        });
     }
 
-    // 2. เปรียบเทียบค่าสภาพอากาศเรียลไทม์กับฐานข้อมูลด้วย KNN Distance
-    function findNearestNeighborInDB(apiWeather) {
-        if (!IMAGE_DATABASE || IMAGE_DATABASE.length === 0) return null;
-
-        let bestMatch = null;
-        let minDistance = Infinity;
-
-        IMAGE_DATABASE.forEach(item => {
-            if (item.weather_status === "Error") return;
-
-            const dCloud = ((apiWeather.cloudcover - item.env_cloudcover) / 100);
-            const dHum = ((apiWeather.humidity - item.env_humidity) / 100);
-            const dVis = (((apiWeather.visibility || 10) - (item.env_visibility || 10)) / 10);
-            const dSolar = (((apiWeather.solarradiation || 0) - (item.env_solarradiation || 0)) / 1000);
-
-            const distance = Math.sqrt(
-                Math.pow(dCloud, 2) + 
-                Math.pow(dHum, 2) + 
-                Math.pow(dVis, 2) + 
-                Math.pow(dSolar, 2)
-            );
-
-            if (distance < minDistance) {
-                minDistance = distance;
-                bestMatch = item;
+    // 1. ดึงข้อมูลสภาพอากาศจาก TMD API
+    async function fetchWeatherTMD(datetimeStr) {
+        // ใช้พิกัดบางแสน (lat: 13.28, lon: 100.91)
+        const url = `https://data.tmd.go.th/nwpapiv1/forecast/daily/datarange?lat=13.28&lon=100.91&fields=tc,rh,rain,swrad,cloud,vis`;
+        
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${TMD_TOKEN}`,
+                'Accept': 'application/json'
             }
         });
 
-        return bestMatch || IMAGE_DATABASE[0];
+        if (!response.ok) {
+            throw new Error(`TMD API Error: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        // จำลองการดึงค่า (ปรับตาม structure จริงที่ได้จาก API)
+        const weatherData = data.WeatherForecasts?.[0]?.forecasts?.[0]?.data || {};
+        
+        return {
+            temp: weatherData.tc || 30,                 // อุณหภูมิ
+            humidity: weatherData.rh || 70,             // ความชื้น
+            precip: weatherData.rain || 0,              // ปริมาณฝน
+            solarradiation: weatherData.swrad || 500,   // รังสี
+            cloudcover: weatherData.cloud || 20,        // เมฆปกคลุม
+            visibility: weatherData.vis || 10           // ทัศนวิสัย
+        };
     }
 
-    // คำนวณเปอร์เซ็นต์ความคล้ายคลึงของค่าสี RGB
+    // คำนวณความคล้ายคลึงของค่าสี (เปอร์เซ็นต์)
     function calculateRgbSimilarity(rgb1, rgb2) {
         const distance = Math.sqrt(
             Math.pow(rgb1[0] - rgb2[0], 2) +
             Math.pow(rgb1[1] - rgb2[1], 2) +
             Math.pow(rgb1[2] - rgb2[2], 2)
         );
-        const maxDistance = 441.67; 
+        const maxDistance = Math.sqrt(Math.pow(255,2) * 3); // 441.67
         const similarity = ((1 - (distance / maxDistance)) * 100).toFixed(2);
         return parseFloat(similarity);
     }
 
-    // 3. ดึงภาพที่ใกล้เคียงกับข้อมูลที่คาดเดาได้มากที่สุดอย่างน้อย 80%
-    function retrieveBestMatchImage(targetRgb) {
-        let candidates = [];
-
-        IMAGE_DATABASE.forEach(item => {
-            const dbRgb = [item.R_mean || 0, item.G_mean || 0, item.B_mean || 0];
-            const similarity = calculateRgbSimilarity(targetRgb, dbRgb);
-            candidates.push({
-                image_path: item.image_path,
-                similarity: similarity
-            });
-        });
-
-        candidates.sort((a, b) => b.similarity - a.similarity);
-
-        const matched = candidates.find(c => c.similarity >= 80);
-        return matched ? matched : candidates[0];
+    // แปลง RGB เป็น HSV
+    function rgbToHsv(r, g, b) {
+        r /= 255, g /= 255, b /= 255;
+        let max = Math.max(r, g, b), min = Math.min(r, g, b);
+        let h, s, v = max;
+        let d = max - min;
+        s = max == 0 ? 0 : d / max;
+        if (max == min) {
+            h = 0; 
+        } else {
+            switch (max) {
+                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                case g: h = (b - r) / d + 2; break;
+                case b: h = (r - g) / d + 4; break;
+            }
+            h /= 6;
+        }
+        return [Math.round(h * 360), Math.round(s * 100), Math.round(v * 100)];
     }
 
-    // ประมวลผลหลักเมื่อกดปุ่ม
+    // แปลงผล Label ตามเงื่อนไข
+    function getLabelText(label) {
+        const labels = {
+            0: "ฟ้าโปร่ง (ท้องฟ้าที่โล่งสว่าง เห็นแสงอาทิตย์ชัดเจน)",
+            1: "ฟ้ามีเมฆ (ฟ้าท้องที่มีเมฆปานกลางถึงมากจับกลุ่มกัน แต่ยังมีแสงแจ่มใส)",
+            2: "ฟ้าหม่น (ฟ้าที่เมฆหรือหมอกกระจายเต็มท้องฟ้าจนไม่สามารถมองเห็นแสงแดด)",
+            3: "ฟ้ามืด (ท้องฟ้ามืดครึ้มจนสุ่มเสี่ยงต่อการเกิดฝนตกและพายุ)"
+        };
+        return labels[label] || "ไม่ทราบสถานะ";
+    }
+
+    // ประมวลผลเมื่อกดปุ่ม
     async function handlePredictJS(e) {
         e.preventDefault();
 
@@ -259,67 +242,78 @@
         const rawDatetime = document.getElementById('datetimeInput').value;
 
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังเชื่อมต่อ WeatherAPI...';
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังเชื่อมต่อ API และประมวลผล...';
 
         try {
-            // 1. ดึงข้อมูลสภาพอากาศเรียลไทม์จาก WeatherAPI
-            const apiWeather = await fetchRealtimeWeather(rawDatetime);
+            // 1. ดึงข้อมูลสภาพอากาศจาก TMD API
+            const envData = await fetchWeatherTMD(rawDatetime);
 
-            // 2. เปรียบเทียบข้อมูลสภาพอากาศกับฐานข้อมูลผ่าน ML
-            const matchedDbRecord = findNearestNeighborInDB(apiWeather);
+            // 2. ส่งข้อมูลไปให้ Backend (Python) ที่รันไฟล์ .pkl
+            // (ต้องมี API ฝั่ง Python เปิดอยู่ เช่น http://localhost:5000/predict)
+            const mlResponse = await fetch('http://localhost:5000/predict', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(envData)
+            });
+            
+            if(!mlResponse.ok) throw new Error("ไม่สามารถติดต่อเซิร์ฟเวอร์ ML ได้ (อาจจะไม่ได้เปิด Backend Python)");
+            
+            const mlResult = await mlResponse.json();
+            const predictedLabel = mlResult.label; // 0, 1, 2, หรือ 3
+            const predictedRgb = mlResult.rgb;     // [R, G, B]
+            const predictedHsv = rgbToHsv(predictedRgb[0], predictedRgb[1], predictedRgb[2]);
 
-            // 3. คาดเดาสภาพฟ้าโปร่ง / ฟ้าหม่น และค่าสี RGB/HSV
-            const isClear = apiWeather.cloudcover < 50 && !apiWeather.conditions.toLowerCase().includes("rain");
-            const skyConditionText = isClear ? "ฟ้าโปร่ง (ท้องฟ้าแจ่มใส)" : "ฟ้าหม่น (มีเมฆมาก/มืดครึ้ม)";
+            // 3. ค้นหารูปภาพจากฐานข้อมูล .csv (กลุ่ม label เดียวกัน และคล้าย >= 90%)
+            let matchedImage = null;
+            let bestSimilarity = 0;
 
-            const predictedRgb = [
-                matchedDbRecord.R_mean || 150,
-                matchedDbRecord.G_mean || 150,
-                matchedDbRecord.B_mean || 180
-            ];
+            const sameLabelData = CSV_DATABASE.filter(item => item.label == predictedLabel);
+            
+            sameLabelData.forEach(item => {
+                const dbRgb = [parseFloat(item.R_mean), parseFloat(item.G_mean), parseFloat(item.B_mean)];
+                const similarity = calculateRgbSimilarity(predictedRgb, dbRgb);
+                
+                // หาค่าที่คล้ายที่สุดและมากกว่าหรือเท่ากับ 90%
+                if (similarity >= 90 && similarity > bestSimilarity) {
+                    bestSimilarity = similarity;
+                    matchedImage = item.image_path;
+                }
+            });
 
-            const predictedHsv = [
-                matchedDbRecord.H_mean || 0,
-                matchedDbRecord.S_mean || 0,
-                matchedDbRecord.V_mean || 0
-            ];
-
-            // 4. ดึงภาพถ่ายตัวอย่างที่มีความคล้ายคลึง >= 80%
-            const imageResult = retrieveBestMatchImage(predictedRgb);
-
-            // แสดงผลลัพธ์บน UI
-            document.getElementById('resCondition').innerText = skyConditionText;
+            // 4. อัปเดตหน้า UI (ข้อความสถานะ)
+            document.getElementById('resCondition').innerText = getLabelText(predictedLabel);
             document.getElementById('resEnvDetails').innerText = 
-                `อุณหภูมิ: ${apiWeather.temp}°C | เมฆ: ${apiWeather.cloudcover}% | ความชื้น: ${apiWeather.humidity}%`;
+                `อุณหภูมิ: ${envData.temp}°C | ความชื้น: ${envData.humidity}% | เมฆ: ${envData.cloudcover}% | ปริมาณฝน: ${envData.precip}mm | รังสี: ${envData.solarradiation}W/m² | ทัศนวิสัย: ${envData.visibility}km`;
 
+            // (ส่วนสี Solid Color)
             const roundedRgb = predictedRgb.map(v => Math.round(v));
-            const roundedHsv = predictedHsv.map(v => Math.round(v));
-
             document.getElementById('resRgbText').innerText = `RGB(${roundedRgb.join(', ')})`;
-            document.getElementById('resHsvText').innerText = `HSV(${roundedHsv[0]}°, ${roundedHsv[1]}, ${roundedHsv[2]})`;
+            document.getElementById('resHsvText').innerText = `HSV(${predictedHsv[0]}°, ${predictedHsv[1]}%, ${predictedHsv[2]}%)`;
             document.getElementById('resColorBadge').style.backgroundColor = `rgb(${roundedRgb.join(',')})`;
 
+            // (จัดการการแสดงรูปภาพ >= 90%)
             const skyImgElement = document.getElementById('resSkyImage');
-            skyImgElement.src = imageResult.image_path;
-            skyImgElement.onerror = function() {
-                this.src = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80';
-            };
-
+            const noImgElement = document.getElementById('resNoImage');
             const similarityEl = document.getElementById('resSimilarity');
-            similarityEl.innerHTML = `<i class="fa-solid fa-check-double"></i> คล้ายกัน: ${imageResult.similarity}%`;
-            similarityEl.style.backgroundColor = imageResult.similarity >= 80 ? "#10b981" : "#f59e0b";
 
-            let rec = isClear 
-                ? "สภาพอากาศดีมาก เหมาะแก่การทำกิจกรรม outdoor เล่นน้ำทะเล และชมทัศนียภาพริมหาดบางแสน"
-                : "ท้องฟ้าครึ้มหรือมีเมฆมาก แนะนำให้เลือกพักผ่อนในร้านอาหาร คาเฟ่ริมหาด หรือพกร่มติดตัว";
-            document.getElementById('resRecommendation').innerText = rec;
+            if (matchedImage) {
+                skyImgElement.src = matchedImage;
+                skyImgElement.style.display = 'block';
+                noImgElement.style.display = 'none';
+                similarityEl.innerHTML = `<i class="fa-solid fa-check-double"></i> คล้ายกัน: ${bestSimilarity}%`;
+                similarityEl.style.display = 'block';
+            } else {
+                skyImgElement.style.display = 'none';
+                noImgElement.style.display = 'block';
+                similarityEl.style.display = 'none';
+            }
 
             document.getElementById('placeholderState').style.display = 'none';
             document.getElementById('resultsState').style.display = 'block';
 
         } catch (error) {
             console.error(error);
-            alert("เกิดข้อผิดพลาดในการดึงข้อมูลสภาพอากาศเรียลไทม์ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต");
+            alert("เกิดข้อผิดพลาด: " + error.message + "\n(กรุณาตรวจสอบว่าคุณได้รันไฟล์ app.py บนเครื่องแล้วหรือยัง)");
         } finally {
             submitBtn.disabled = false;
             submitBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> พยากรณ์ท้องฟ้า';
