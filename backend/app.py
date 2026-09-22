@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import pickle
 import numpy as np
+from sklearn.ensemble import RandomForestClassifier
 
 app = Flask(__name__)
 CORS(app) # อนุญาตให้ HTML ยิง API เข้ามาได้
