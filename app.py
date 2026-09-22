@@ -7,7 +7,7 @@ app = Flask(__name__)
 CORS(app) # อนุญาตให้ HTML ยิง API เข้ามาได้
 
 # โหลดไฟล์ โมเดล .pkl (สมมติชื่อ model.pkl)
-with open('model.pkl', 'rb') as file:
+with open('data/sky_weather_rf_model.pkl', 'rb') as file:
     model = pickle.load(file)
 
 @app.route('/predict', methods=['POST'])
