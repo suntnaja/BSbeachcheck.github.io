@@ -161,14 +161,21 @@
         });
     }
 
-    // 1. ดึงข้อมูลสภาพอากาศจาก TMD API
+    // 1. ดึงข้อมูลสภาพอากาศจาก TMD API (ปรับแต่งการเรียกใช้แบบเจาะจงเวลา /at)
     async function fetchWeatherTMD(datetimeStr) {
         const proxyUrl = "https://tmd-proxy.sunt8346.workers.dev";
         const lat = 13.28;
         const lon = 100.91;
 
-        const hourlyUrl = `${proxyUrl}/nwpapi/v1/forecast/location/hourly?lat=${lat}&lon=${lon}&fields=tc,rh,rain,cloudlow,cloudmed,cloudhigh`;
-        const dailyUrl = `${proxyUrl}/nwpapi/v1/forecast/location/daily?lat=${lat}&lon=${lon}&fields=swdown`;
+        // แยกวันที่และชั่วโมงออกจากรูปแบบ YYYY-MM-DDTHH:mm
+        const datePart = datetimeStr.split('T')[0];
+        const hourPart = parseInt(datetimeStr.split('T')[1].split(':')[0], 10);
+
+        // ใช้ endpoint /at เพื่อระบุเวลาที่ต้องการแบบเจาะจง และใช้ duration=1 เพื่อขอข้อมูลจุดเดียว
+        const hourlyUrl = `${proxyUrl}/nwpapi/v1/forecast/location/hourly/at?lat=${lat}&lon=${lon}&fields=tc,rh,rain,cloudlow,cloudmed,cloudhigh&date=${datePart}&hour=${hourPart}&duration=1`;
+        
+        // สำหรับรายวัน ไม่ต้องระบุชั่วโมง (hour)
+        const dailyUrl = `${proxyUrl}/nwpapi/v1/forecast/location/daily/at?lat=${lat}&lon=${lon}&fields=swdown&date=${datePart}&duration=1`;
         
         const fetchOptions = {
             method: 'GET',
@@ -190,50 +197,18 @@
         const hourlyData = await hourlyResponse.json();
         const dailyData = await dailyResponse.json();
         
-        const targetTimestamp = new Date(datetimeStr).getTime();
-        
-        // ดึง Array ของรายการพยากรณ์
         const h_forecasts = hourlyData.WeatherForecasts?.[0]?.forecasts || [];
         const d_forecasts = dailyData.WeatherForecasts?.[0]?.forecasts || [];
 
-        // 1. ตรวจสอบว่า API ส่งข้อมูลกลับมาหรือไม่
         if (h_forecasts.length === 0) {
             console.error("TMD API Response (Hourly):", hourlyData);
-            throw new Error("ไม่พบข้อมูลพยากรณ์จาก TMD API (อาจจะอยู่นอกช่วงเวลาที่มีข้อมูล หรือ API ไม่ตอบสนองโครงสร้างที่ถูกต้อง)");
+            throw new Error("ไม่พบข้อมูลพยากรณ์จาก TMD API สำหรับช่วงเวลานี้ (อาจเลือกเวลาในอดีตหรือไกลเกินไป)");
         }
 
-        // 2. ปรับปรุงฟังก์ชันค้นหาเวลาให้รองรับ Format ข้ามเบราว์เซอร์
-        function findClosestData(forecastArray, targetTime) {
-            let closestData = {};
-            let minDiff = Infinity;
-            
-            for (let item of forecastArray) {
-                let timeStr = item.time || "";
-                // แปลงช่องว่างเป็น 'T' เพื่อให้เบราว์เซอร์แปลงเวลาได้ถูกต้องเสมอ
-                if (timeStr && !timeStr.includes('T')) {
-                    timeStr = timeStr.replace(' ', 'T');
-                }
-                
-                if (timeStr) {
-                    const itemTime = new Date(timeStr).getTime();
-                    // ตรวจสอบว่าแปลง Date สำเร็จ
-                    if (!isNaN(itemTime)) {
-                        const diff = Math.abs(itemTime - targetTime);
-                        if (diff < minDiff) {
-                            minDiff = diff;
-                            // รองรับทั้งกรณีที่ข้อมูลอยู่ใน .data และอยู่นอก .data
-                            closestData = item.data !== undefined ? item.data : item;
-                        }
-                    }
-                }
-            }
-            return closestData;
-        }
+        // เนื่องจากเราระบุเวลาไปแล้ว ข้อมูลที่ได้กลับมาใน Array จะเป็นของเวลานั้นโดยตรง
+        const h_data = h_forecasts[0]?.data !== undefined ? h_forecasts[0].data : h_forecasts[0];
+        const d_data = (d_forecasts[0]?.data !== undefined ? d_forecasts[0].data : d_forecasts[0]) || {};
 
-        const h_data = findClosestData(h_forecasts, targetTimestamp);
-        const d_data = findClosestData(d_forecasts, targetTimestamp);
-        
-        // 3. ใช้ ?? (Nullish Coalescing) แทน || ป้องกันค่า 0 ถูกข้าม
         const temp = h_data.tc ?? 30;
         const humidity = h_data.rh ?? 70;
         const precip = h_data.rain ?? 0;
