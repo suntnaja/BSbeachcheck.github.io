@@ -164,7 +164,11 @@
     // 1. ดึงข้อมูลสภาพอากาศจาก TMD API
     async function fetchWeatherTMD(datetimeStr) {
         // ใช้พิกัดบางแสน (lat: 13.28, lon: 100.91)
-        const url = `https://data.tmd.go.th/nwpapiv1/forecast/daily/datarange?lat=13.28&lon=100.91&fields=tc,rh,rain,swrad,cloud,vis`;
+        // เปลี่ยน URL หลักจาก data.tmd.go.th เป็น Proxy ของคุณ
+        const proxyUrl = "https://tmd-proxy.sunt8346.workers.dev";
+        const endpoint = "/nwpapiv1/forecast/daily/datarange?lat=13.28&lon=100.91&fields=tc,rh,rain,swrad,cloud,vis";
+
+        const url = proxyUrl + endpoint;
         
         const response = await fetch(url, {
             method: 'GET',
