@@ -280,7 +280,6 @@
             const envData = await fetchWeatherTMD(rawDatetime);
 
             // ================= ส่วนที่แก้ไขใหม่ =================
-            // เตรียมข้อมูล Features เป็น Array (อุณหภูมิ, ความชื้น, ปริมาณฝน, เมฆ, ทัศนวิสัย, รังสี)
             const inputFeatures = Float32Array.from([
                 envData.temp, 
                 envData.humidity, 
@@ -290,29 +289,30 @@
                 envData.solarradiation
             ]);
             
-            // สร้าง Tensor สำหรับป้อนให้ ONNX Model โดยกำหนดขนาดเป็น [1, 6] (1 แถว, 6 คอลัมน์)
             const tensor = new ort.Tensor('float32', inputFeatures, [1, 6]);
 
-            // รันโมเดล Classifier (ไฟล์ที่ 2) เพื่อหา Label
-            // ระบุชื่อ input เป็น 'float_input' ตามโครงสร้างของโมเดล
-            const sessionClassifier = await ort.InferenceSession.create('./backend/data/weather_classifier.onnx');
-            const feedsClassifier = { float_input: tensor }; 
-            const resultsClassifier = await sessionClassifier.run(feedsClassifier);
+            // 1. รันโมเดล Classifier (พยากรณ์สภาพฟ้า)
+            const sessionClassifier = await ort.InferenceSession.create('./weather_classifier.onnx');
             
-            // ดึงผลลัพธ์จากโหนด 'output_label'
-            const predictedLabel = Number(resultsClassifier.output_label.data[0]); 
+            // ดึงชื่อ Output ตัวแรก ('label') และบังคับให้ session.run คืนค่าแค่อันเดียว
+            const classifierOutputName = sessionClassifier.outputNames[0]; 
+            const resultsClassifier = await sessionClassifier.run({ float_input: tensor }, [classifierOutputName]);
+            
+            // ดึงผลลัพธ์ Label
+            const predictedLabel = Number(resultsClassifier[classifierOutputName].data[0]); 
 
-            // รันโมเดล Regressor (ไฟล์ที่ 1) เพื่อหา RGB
-            // ระบุชื่อ input เป็น 'float_input' ตามโครงสร้างของโมเดล
-            const sessionRegressor = await ort.InferenceSession.create('./backend/data/color_regressor.onnx');
-            const feedsRegressor = { float_input: tensor }; 
-            const resultsRegressor = await sessionRegressor.run(feedsRegressor);
+            // 2. รันโมเดล Regressor (พยากรณ์สี)
+            const sessionRegressor = await ort.InferenceSession.create('./color_regressor.onnx');
             
-            // ดึงผลลัพธ์จากโหนด 'variable' ซึ่งเก็บค่า RGB 3 ช่อง
+            // ดึงชื่อ Output ('variable')
+            const regressorOutputName = sessionRegressor.outputNames[0];
+            const resultsRegressor = await sessionRegressor.run({ float_input: tensor }, [regressorOutputName]);
+            
+            // ดึงผลลัพธ์ RGB
             const predictedRgb = [
-                resultsRegressor.variable.data[0], 
-                resultsRegressor.variable.data[1], 
-                resultsRegressor.variable.data[2]
+                resultsRegressor[regressorOutputName].data[0], 
+                resultsRegressor[regressorOutputName].data[1], 
+                resultsRegressor[regressorOutputName].data[2]
             ];
             // ==================================================
 
