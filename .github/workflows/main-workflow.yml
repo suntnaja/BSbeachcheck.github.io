@@ -29,7 +29,7 @@ jobs:
       - name: 📦 Install all dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pandas opencv-python-headless torch torchvision transformers Pillow numpy scikit-learn joblib
+          pip install pandas opencv-python-headless torch torchvision transformers Pillow numpy scikit-learn joblib skl2onnx onnx
 
       # ---------------------------------------------------------
       # ลำดับที่ 1: รันสคริปต์สกัดสีท้องฟ้า (สร้าง model_db.csv)
