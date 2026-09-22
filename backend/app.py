@@ -2,7 +2,9 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import pickle
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, mean_absolute_error
 
 app = Flask(__name__)
 CORS(app) # อนุญาตให้ HTML ยิง API เข้ามาได้
