@@ -161,13 +161,14 @@
         });
     }
 
-    // 1. ดึงข้อมูลสภาพอากาศจาก TMD API (อัปเดตตามโครงสร้าง v1/forecast/location)
+    // 1. ดึงข้อมูลสภาพอากาศจาก TMD API
     async function fetchWeatherTMD(datetimeStr) {
-        const proxyUrl = "https://tmd-proxy.yourname.workers.dev/?url=";
+        // ใช้โดเมน Worker ของคุณจริงๆ (ลบ yourname ออก)
+        const proxyUrl = "https://tmd-proxy.sunt8346.workers.dev";
         const lat = 13.28;
         const lon = 100.91;
 
-        // แยก URL เป็นรายชั่วโมง (สำหรับสภาพอากาศทั่วไป) และรายวัน (สำหรับรังสีดวงอาทิตย์)
+        // นำ proxyUrl มาต่อกับ Path ของ TMD ตรงๆ (ลบ /?url= ออก)
         const hourlyUrl = `${proxyUrl}/nwpapi/v1/forecast/location/hourly?lat=${lat}&lon=${lon}&fields=tc,rh,rain,cloudlow,cloudmed,cloudhigh`;
         const dailyUrl = `${proxyUrl}/nwpapi/v1/forecast/location/daily?lat=${lat}&lon=${lon}&fields=swdown`;
         
@@ -179,7 +180,6 @@
             }
         };
 
-        // สั่งให้ระบบยิง Request ไปหา API ทั้ง 2 เส้นพร้อมกันเพื่อความรวดเร็ว
         const [hourlyResponse, dailyResponse] = await Promise.all([
             fetch(hourlyUrl, fetchOptions),
             fetch(dailyUrl, fetchOptions)
@@ -192,32 +192,23 @@
         const hourlyData = await hourlyResponse.json();
         const dailyData = await dailyResponse.json();
         
-        // แกะข้อมูลที่ได้ (โค้ดดึง Array ตำแหน่ง [0] เป็นค่าตั้งต้น คุณอาจต้องปรับให้วนลูปหาช่วงเวลาที่ตรงกับ datetimeStr ในอนาคต)
         const h_data = hourlyData.WeatherForecasts?.[0]?.forecasts?.[0]?.data || {};
         const d_data = dailyData.WeatherForecasts?.[0]?.forecasts?.[0]?.data || {};
         
-        // แมปปิ้งค่าตัวแปร
         const temp = h_data.tc || 30;
         const humidity = h_data.rh || 70;
         const precip = h_data.rain || 0;
         const solarradiation = d_data.swdown || 500;
 
-        // --- การคำนวณค่าที่ไม่มีใน API โดยตรง ---
-
-        // 1. คำนวณปริมาณเมฆ (Cloud cover): นำเมฆชั้นต่ำ กลาง และสูง มาหาค่าเฉลี่ย
         const cl = h_data.cloudlow || 0;
         const cm = h_data.cloudmed || 0;
         const ch = h_data.cloudhigh || 0;
         const cloudcover = (cl + cm + ch) / 3 || 20;
 
-        // 2. คำนวณทัศนวิสัย (Visibility): ประเมินจากปริมาณฝนและความชื้นสัมพัทธ์
-        // ทัศนวิสัยสูงสุดตั้งไว้ที่ 10 km 
         let visibility = 10;
         if (precip > 0) {
-            // ถ้ามีฝนตก ทัศนวิสัยจะลดลง (สมมติให้ลด 1.5 km ต่อปริมาณฝน 1 mm) ต่ำสุดที่ 1 km
             visibility = Math.max(1, 10 - (precip * 1.5));
         } else if (humidity > 80) {
-            // ถ้าไม่มีฝนแต่ความชื้นสูงเกิน 80% (สภาวะหมอก/ฝ้า) ทัศนวิสัยจะลดลง
             visibility = Math.max(3, 10 - ((humidity - 80) * 0.2));
         }
         
