@@ -1,10 +1,14 @@
 import pandas as pd
 import numpy as np
-import joblib
 import os
+import joblib
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, mean_absolute_error
+
+# 🌟 เพิ่มโมดูลสำหรับแปลงเป็น ONNX
+from skl2onnx import convert_sklearn
+from skl2onnx.common.data_types import FloatTensorType
 
 def load_and_prepare_data(csv_file_path):
     print(f"กำลังอ่านข้อมูลจากไฟล์: {csv_file_path}...")
@@ -125,28 +129,33 @@ def train_and_evaluate(df):
     return combined_model
 
 if __name__ == "__main__":
-    # 🌟 ประกาศตัวแปร csv_path เพื่อรับค่า
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     csv_path = os.path.join(BASE_DIR, '..', 'data', 'model_db.csv')
-    
-    # กำหนดตำแหน่งเซฟโมเดลให้อยู่ในโฟลเดอร์เดียวกับโค้ด
-    model_filename = os.path.join(BASE_DIR, '..', 'data', 'sky_weather_rf_model.pkl')
     
     try:
         df_dataset = load_and_prepare_data(csv_path)
         
         if len(df_dataset) < 10:
-            print(f"⚠️ ข้อมูลใน {csv_path} มีน้อยเกินไป (น้อยกว่า 10 รูป) แนะนำให้เก็บเพิ่มก่อน")
+            print(f"⚠️ ข้อมูลมีน้อยเกินไป (น้อยกว่า 10 รูป) แนะนำให้เก็บเพิ่มก่อน")
         else:
             trained_model = train_and_evaluate(df_dataset)
             
-            # บันทึกเป็นไฟล์เดียว แต่ข้างในบรรจุโมเดล 2 ชิ้น
-            joblib.dump(trained_model, model_filename)
+            # 🌟 กำหนดรูปแบบ Input: เรามีตัวแปรสภาพอากาศ 6 ตัว เป็นตัวเลขทศนิยม (Float)
+            initial_type = [('float_input', FloatTensorType([None, 6]))]
             
-            print("\n✅ บันทึกโมเดลเสร็จสมบูรณ์!")
-            print(f"ไฟล์ถูกเก็บไว้ที่: {model_filename}")
+            # 1. แปลงและเซฟโมเดลทำนายสถานะสภาพอากาศ (Classifier)
+            onnx_clf = convert_sklearn(trained_model['classifier'], initial_types=initial_type)
+            clf_path = os.path.join(BASE_DIR, 'weather_classifier.onnx')
+            with open(clf_path, "wb") as f:
+                f.write(onnx_clf.SerializeToString())
+                
+            # 2. แปลงและเซฟโมเดลทำนายค่าสี (Regressor)
+            onnx_color = convert_sklearn(trained_model['color_predictor'], initial_types=initial_type)
+            color_path = os.path.join(BASE_DIR, 'color_regressor.onnx')
+            with open(color_path, "wb") as f:
+                f.write(onnx_color.SerializeToString())
             
-    except FileNotFoundError:
-        print(f"❌ ไม่พบไฟล์ '{csv_path}'")
+            print(f"\n✅ บันทึกโมเดล ONNX เสร็จสมบูรณ์! (แยกเป็น 2 ไฟล์)")
+            
     except Exception as e:
         print(f"❌ เกิดข้อผิดพลาด: {e}")
