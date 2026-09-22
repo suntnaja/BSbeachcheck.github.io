@@ -190,46 +190,59 @@
         const hourlyData = await hourlyResponse.json();
         const dailyData = await dailyResponse.json();
         
-        // ================= ส่วนที่แก้ไขใหม่ =================
-        // แปลงเวลาที่ผู้ใช้เลือกเป็น Timestamp (มิลลิวินาที)
         const targetTimestamp = new Date(datetimeStr).getTime();
         
-        // ดึง Array ของรายการพยากรณ์ทั้งหมดออกมา
+        // ดึง Array ของรายการพยากรณ์
         const h_forecasts = hourlyData.WeatherForecasts?.[0]?.forecasts || [];
         const d_forecasts = dailyData.WeatherForecasts?.[0]?.forecasts || [];
 
-        // ฟังก์ชันย่อยสำหรับค้นหาข้อมูลที่เวลาตรงกันหรือใกล้เคียงที่สุด
+        // 1. ตรวจสอบว่า API ส่งข้อมูลกลับมาหรือไม่
+        if (h_forecasts.length === 0) {
+            console.error("TMD API Response (Hourly):", hourlyData);
+            throw new Error("ไม่พบข้อมูลพยากรณ์จาก TMD API (อาจจะอยู่นอกช่วงเวลาที่มีข้อมูล หรือ API ไม่ตอบสนองโครงสร้างที่ถูกต้อง)");
+        }
+
+        // 2. ปรับปรุงฟังก์ชันค้นหาเวลาให้รองรับ Format ข้ามเบราว์เซอร์
         function findClosestData(forecastArray, targetTime) {
             let closestData = {};
             let minDiff = Infinity;
             
             for (let item of forecastArray) {
-                if (item.time) {
-                    const itemTime = new Date(item.time).getTime();
-                    const diff = Math.abs(itemTime - targetTime);
-                    if (diff < minDiff) {
-                        minDiff = diff;
-                        closestData = item.data || {};
+                let timeStr = item.time || "";
+                // แปลงช่องว่างเป็น 'T' เพื่อให้เบราว์เซอร์แปลงเวลาได้ถูกต้องเสมอ
+                if (timeStr && !timeStr.includes('T')) {
+                    timeStr = timeStr.replace(' ', 'T');
+                }
+                
+                if (timeStr) {
+                    const itemTime = new Date(timeStr).getTime();
+                    // ตรวจสอบว่าแปลง Date สำเร็จ
+                    if (!isNaN(itemTime)) {
+                        const diff = Math.abs(itemTime - targetTime);
+                        if (diff < minDiff) {
+                            minDiff = diff;
+                            // รองรับทั้งกรณีที่ข้อมูลอยู่ใน .data และอยู่นอก .data
+                            closestData = item.data !== undefined ? item.data : item;
+                        }
                     }
                 }
             }
             return closestData;
         }
 
-        // ค้นหาข้อมูลรายชั่วโมงและรายวันที่ใกล้กับเวลาที่เลือกมากที่สุด
         const h_data = findClosestData(h_forecasts, targetTimestamp);
         const d_data = findClosestData(d_forecasts, targetTimestamp);
-        // ==================================================
         
-        const temp = h_data.tc || 30;
-        const humidity = h_data.rh || 70;
-        const precip = h_data.rain || 0;
-        const solarradiation = d_data.swdown || 500;
+        // 3. ใช้ ?? (Nullish Coalescing) แทน || ป้องกันค่า 0 ถูกข้าม
+        const temp = h_data.tc ?? 30;
+        const humidity = h_data.rh ?? 70;
+        const precip = h_data.rain ?? 0;
+        const solarradiation = d_data.swdown ?? 500;
 
-        const cl = h_data.cloudlow || 0;
-        const cm = h_data.cloudmed || 0;
-        const ch = h_data.cloudhigh || 0;
-        const cloudcover = (cl + cm + ch) / 3 || 20;
+        const cl = h_data.cloudlow ?? 0;
+        const cm = h_data.cloudmed ?? 0;
+        const ch = h_data.cloudhigh ?? 0;
+        const cloudcover = (cl + cm + ch) / 3 ?? 20;
 
         let visibility = 10;
         if (precip > 0) {
