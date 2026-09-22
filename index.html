@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bangsaen Sky Predictor - พยากรณ์ท้องฟ้าและสภาพอากาศบางแสน</title>
@@ -137,7 +138,7 @@
         document.getElementById('datetimeInput').value = now.toISOString().slice(0, 16);
 
         try {
-            const response = await fetch('./model_db.csv');
+            const response = await fetch('./backend/data/model_db.csv');
             if (!response.ok) throw new Error('ไม่สามารถโหลด model_db.csv ได้');
             const csvText = await response.text();
             CSV_DATABASE = parseCSV(csvText);
@@ -248,19 +249,43 @@
             // 1. ดึงข้อมูลสภาพอากาศจาก TMD API
             const envData = await fetchWeatherTMD(rawDatetime);
 
-            // 2. ส่งข้อมูลไปให้ Backend (Python) ที่รันไฟล์ .pkl
-            // (ต้องมี API ฝั่ง Python เปิดอยู่ เช่น http://localhost:5000/predict)
-            const mlResponse = await fetch('http://localhost:5000/predict', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(envData)
-            });
+            // ================= ส่วนที่แก้ไขใหม่ =================
+            // เตรียมข้อมูล Features เป็น Array (อุณหภูมิ, ความชื้น, ปริมาณฝน, เมฆ, ทัศนวิสัย, รังสี)
+            const inputFeatures = Float32Array.from([
+                envData.temp, 
+                envData.humidity, 
+                envData.precip, 
+                envData.cloudcover, 
+                envData.visibility, 
+                envData.solarradiation
+            ]);
             
-            if(!mlResponse.ok) throw new Error("ไม่สามารถติดต่อเซิร์ฟเวอร์ ML ได้ (อาจจะไม่ได้เปิด Backend Python)");
+            // สร้าง Tensor สำหรับป้อนให้ ONNX Model โดยกำหนดขนาดเป็น [1, 6] (1 แถว, 6 คอลัมน์)
+            const tensor = new ort.Tensor('float32', inputFeatures, [1, 6]);
+
+            // รันโมเดล Classifier (ไฟล์ที่ 2) เพื่อหา Label
+            // ระบุชื่อ input เป็น 'float_input' ตามโครงสร้างของโมเดล
+            const sessionClassifier = await ort.InferenceSession.create('./backend/data/model_classifier.onnx');
+            const feedsClassifier = { float_input: tensor }; 
+            const resultsClassifier = await sessionClassifier.run(feedsClassifier);
             
-            const mlResult = await mlResponse.json();
-            const predictedLabel = mlResult.label; // 0, 1, 2, หรือ 3
-            const predictedRgb = mlResult.rgb;     // [R, G, B]
+            // ดึงผลลัพธ์จากโหนด 'output_label'
+            const predictedLabel = Number(resultsClassifier.output_label.data[0]); 
+
+            // รันโมเดล Regressor (ไฟล์ที่ 1) เพื่อหา RGB
+            // ระบุชื่อ input เป็น 'float_input' ตามโครงสร้างของโมเดล
+            const sessionRegressor = await ort.InferenceSession.create('./backend/data/model_regressor.onnx');
+            const feedsRegressor = { float_input: tensor }; 
+            const resultsRegressor = await sessionRegressor.run(feedsRegressor);
+            
+            // ดึงผลลัพธ์จากโหนด 'variable' ซึ่งเก็บค่า RGB 3 ช่อง
+            const predictedRgb = [
+                resultsRegressor.variable.data[0], 
+                resultsRegressor.variable.data[1], 
+                resultsRegressor.variable.data[2]
+            ];
+            // ==================================================
+
             const predictedHsv = rgbToHsv(predictedRgb[0], predictedRgb[1], predictedRgb[2]);
 
             // 3. ค้นหารูปภาพจากฐานข้อมูล .csv (กลุ่ม label เดียวกัน และคล้าย >= 90%)
@@ -281,17 +306,16 @@
             });
 
             // 4. อัปเดตหน้า UI (ข้อความสถานะ)
+            // (คงโค้ดส่วนนี้ไว้เหมือนเดิมทั้งหมด)
             document.getElementById('resCondition').innerText = getLabelText(predictedLabel);
             document.getElementById('resEnvDetails').innerText = 
                 `อุณหภูมิ: ${envData.temp}°C | ความชื้น: ${envData.humidity}% | เมฆ: ${envData.cloudcover}% | ปริมาณฝน: ${envData.precip}mm | รังสี: ${envData.solarradiation}W/m² | ทัศนวิสัย: ${envData.visibility}km`;
 
-            // (ส่วนสี Solid Color)
             const roundedRgb = predictedRgb.map(v => Math.round(v));
             document.getElementById('resRgbText').innerText = `RGB(${roundedRgb.join(', ')})`;
             document.getElementById('resHsvText').innerText = `HSV(${predictedHsv[0]}°, ${predictedHsv[1]}%, ${predictedHsv[2]}%)`;
             document.getElementById('resColorBadge').style.backgroundColor = `rgb(${roundedRgb.join(',')})`;
 
-            // (จัดการการแสดงรูปภาพ >= 90%)
             const skyImgElement = document.getElementById('resSkyImage');
             const noImgElement = document.getElementById('resNoImage');
             const similarityEl = document.getElementById('resSimilarity');
@@ -313,7 +337,7 @@
 
         } catch (error) {
             console.error(error);
-            alert("เกิดข้อผิดพลาด: " + error.message + "\n(กรุณาตรวจสอบว่าคุณได้รันไฟล์ app.py บนเครื่องแล้วหรือยัง)");
+            alert("เกิดข้อผิดพลาด: " + error.message);
         } finally {
             submitBtn.disabled = false;
             submitBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> พยากรณ์ท้องฟ้า';
