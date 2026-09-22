@@ -295,7 +295,7 @@
 
             // รันโมเดล Classifier (ไฟล์ที่ 2) เพื่อหา Label
             // ระบุชื่อ input เป็น 'float_input' ตามโครงสร้างของโมเดล
-            const sessionClassifier = await ort.InferenceSession.create('backend/data/model_classifier.onnx');
+            const sessionClassifier = await ort.InferenceSession.create('./backend/data/weather_classifier.onnx');
             const feedsClassifier = { float_input: tensor }; 
             const resultsClassifier = await sessionClassifier.run(feedsClassifier);
             
@@ -304,7 +304,7 @@
 
             // รันโมเดล Regressor (ไฟล์ที่ 1) เพื่อหา RGB
             // ระบุชื่อ input เป็น 'float_input' ตามโครงสร้างของโมเดล
-            const sessionRegressor = await ort.InferenceSession.create('backend/data/model_regressor.onnx');
+            const sessionRegressor = await ort.InferenceSession.create('./backend/data/color_regressor.onnx');
             const feedsRegressor = { float_input: tensor }; 
             const resultsRegressor = await sessionRegressor.run(feedsRegressor);
             
