@@ -85,12 +85,13 @@ def train_and_evaluate(df):
         print(f"🚀 ผลประเมินโมเดล: {name}")
         print("="*50)
         
-        # 1. เทรนและประเมิน Classification
-        m['clf'].fit(X_train, y_label_train)
-        y_label_pred = m['clf'].predict(X_test)
-        acc = accuracy_score(y_label_test, y_label_pred)
-        
-        print(f"🎯 ความแม่นยำสถานะท้องฟ้า (Accuracy): {acc * 100:.2f}%\n")
+        try:
+            # 1. เทรนและประเมิน Classification
+            m['clf'].fit(X_train, y_label_train)
+            y_label_pred = m['clf'].predict(X_test)
+            acc = accuracy_score(y_label_test, y_label_pred)
+            
+            print(f"🎯 ความแม่นยำสถานะท้องฟ้า (Accuracy): {acc * 100:.2f}%\n")
         
         # 🌟 เพิ่ม Classification Report
         try:
@@ -117,13 +118,20 @@ def train_and_evaluate(df):
         print("-" * 50)
         
         # 2. เทรนและประเมิน Regression
-        m['reg'].fit(X_train, y_colors_train)
-        y_colors_pred = m['reg'].predict(X_test)
-        mae = mean_absolute_error(y_colors_test, y_colors_pred)
+            m['reg'].fit(X_train, y_colors_train)
+            y_colors_pred = m['reg'].predict(X_test)
+            mae = mean_absolute_error(y_colors_test, y_colors_pred)
+            
+            print(f"🎨 ความคลาดเคลื่อนสีเฉลี่ยโดยรวม (MAE): +/- {mae:.2f} หน่วย")
+            
+            # เก็บเฉพาะโมเดลที่ Train ผ่านเข้าสู่ดิกชันนารีเพื่อรอเซฟเป็น .onnx
+            trained_models[name] = m
         
-        print(f"🎨 ความคลาดเคลื่อนสีเฉลี่ยโดยรวม (MAE): +/- {mae:.2f} หน่วย")
-        
-        trained_models[name] = m
+        except Exception as e:
+            # 🌟 หากโมเดลไหน Error (เช่น XGBoost ขาดคลาส) ระบบจะแจ้งเตือนแล้วข้ามไปโมเดลถัดไป
+            print(f"⚠️ ไม่สามารถ Train โมเดล {name} ได้: {e}")
+            print(f"-> ข้ามการสร้างโมเดล {name}")
+            continue
 
     return trained_models
 
