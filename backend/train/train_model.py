@@ -134,9 +134,18 @@ def train_and_evaluate(df):
 
     return trained_models
 
-def save_to_onnx(model, filepath, initial_type):
+def save_to_onnx(model, filepath, initial_type, timestamp_str):
     try:
         onnx_model = convert_sklearn(model, initial_types=initial_type, target_opset=12)
+        
+        # 🌟 1. ฝัง Metadata ลงในไฟล์ ONNX
+        meta = onnx_model.metadata_props.add()
+        meta.key = "creation_time"
+        meta.value = timestamp_str
+        
+        # 🌟 2. เพิ่มคำอธิบายไฟล์ (Doc String) เผื่อเปิดดูด้วยโปรแกรมอื่น
+        onnx_model.doc_string = f"Model trained and generated on: {timestamp_str}"
+        
         with open(filepath, "wb") as f:
             f.write(onnx_model.SerializeToString())
         return True
@@ -162,8 +171,8 @@ if __name__ == "__main__":
             for model_name, models in all_trained_models.items():
                 print(f"\nกำลังประมวลผลเซ็ต: {model_name}")
                 
-                clf_filename = f"{model_name}_Classifier_{timestamp}.onnx"
-                reg_filename = f"{model_name}_Regressor_{timestamp}.onnx"
+                clf_filename = f"{model_name}_Classifier.onnx"
+                reg_filename = f"{model_name}_Regressor.onnx"
                 
                 clf_path = os.path.join(BASE_DIR, '..', 'data', clf_filename)
                 reg_path = os.path.join(BASE_DIR, '..', 'data', reg_filename)
