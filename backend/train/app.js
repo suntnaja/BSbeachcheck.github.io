@@ -304,7 +304,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             
             document.getElementById('loading').style.display = 'none';
-            document.getElementById('accText').innerText = `✅ เตรียมข้อมูลสำเร็จ กดปุ่ม Save เพื่ออัปโหลดขึ้น GitHub`;
+            document.getElementById('accText').innerText = `✅ เตรียมข้อมูลสำเร็จ กดปุ่มยืนยัน เพื่ออัปโหลดขึ้น GitHub`;
             document.getElementById('resultSection').style.display = 'block';
 
         } catch (error) {
