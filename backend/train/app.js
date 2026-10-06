@@ -320,7 +320,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         const owner = "suntnaja";
         const repo = "BSbeachcheck.github.io";
-        const token = "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";
+        const token = "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";
 
         if(!owner || !repo || !token) return alert("กรุณาใส่ข้อมูล GitHub ในไฟล์ app.js ให้ครบ");
         document.getElementById('loading').style.display = 'block';
