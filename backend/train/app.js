@@ -1,43 +1,7 @@
-// ------------------------------------------
-// 1. ดักจับเหตุการณ์เมื่อมีการเลือกไฟล์รูปภาพ
-// ------------------------------------------
-document.getElementById('images').addEventListener('change', function(event) {
-    const files = event.target.files;
-    const dateTimeSection = document.getElementById('dateTimeInputSection');
-    const fileListContainer = document.getElementById('fileListContainer');
-
-    // ล้างข้อมูลเก่าออกก่อน
-    fileListContainer.innerHTML = '';
-
-    // ถ้ามีการเลือกไฟล์เข้ามา
-    if (files.length > 0) {
-        // 🌟 สั่งให้ส่วนระบุเวลาแสดงขึ้นมา
-        dateTimeSection.style.display = 'block';
-
-        // วนลูปสร้างช่องกรอกเวลาสำหรับรูปภาพแต่ละไฟล์
-        Array.from(files).forEach((file, index) => {
-            const fileBox = document.createElement('div');
-            fileBox.className = 'mb-3 p-3 border rounded bg-white shadow-sm';
-            
-            // สร้าง Label บอกชื่อไฟล์ และ Input สำหรับเลือกเวลา
-            fileBox.innerHTML = `
-                <label class="form-label text-secondary fw-bold mb-1">📷 ภาพที่ ${index + 1}: ${file.name}</label>
-                <input type="datetime-local" class="form-control file-time-input" data-index="${index}" required>
-            `;
-            fileListContainer.appendChild(fileBox);
-        });
-    } else {
-        // ถ้าผู้ใช้กดยกเลิกการเลือกไฟล์ ให้ซ่อนส่วนนี้กลับไปเหมือนเดิม
-        dateTimeSection.style.display = 'none';
-    }
-});
-
-
 // ==========================================
 // 1. DATA INGESTION & PREPROCESSING (dmt API)
 // ==========================================
 
-// แผนผังการแปลรหัสสภาพอากาศ (cond) เป็นสถานะและกลุ่ม
 const weatherConditionMap = {
     1: { text: "แจ่มใส (Clear)", label: 1, icon: "☀️" },
     2: { text: "เมฆบางส่วน (Partly cloudy)", label: 1, icon: "🌤️" },
@@ -53,26 +17,21 @@ const weatherConditionMap = {
     12: { text: "อากาศร้อนจัด (Very hot)", label: 1, icon: "🔥" }
 };
 
-// ตัวแปรเก็บขอบเขตเวลา
 let dbMinDate = "";
 let dbMaxDate = "";
 
 async function fetchDateRangeFromDB() {
     try {
-        const response = await fetch('../data/weatherdb.csv'); // ชื่อไฟล์ฐานข้อมูลปัจจุบัน
+        const response = await fetch('../data/weatherdb.csv');
         if (!response.ok) throw new Error("ไม่พบไฟล์ฐานข้อมูล");
         
         const csvText = await response.text();
-        
-        // 🌟 ปรับปรุงใหม่: สแกนหาข้อความที่มีรูปแบบ YYYY-MM-DDTHH:MM จากทั้งไฟล์โดยตรง 
-        // ไม่ต้องสนใจว่าอยู่คอลัมน์ไหน ตัดปัญหาเรื่อง , หรือ " กวนใจ
         const datePattern = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/g;
         const matches = csvText.match(datePattern);
         
         if (matches && matches.length > 0) {
-            dbMinDate = matches[0];                     // วันที่ตัวแรกที่เจอในไฟล์
-            dbMaxDate = matches[matches.length - 1];    // วันที่ตัวสุดท้ายที่เจอในไฟล์
-            
+            dbMinDate = matches[0];
+            dbMaxDate = matches[matches.length - 1];
             console.log(`✅ ล็อกปฏิทินเรียบร้อย: ${dbMinDate} ถึง ${dbMaxDate}`);
         } else {
             console.error("❌ ไม่พบรูปแบบวันที่ที่ถูกต้องในไฟล์เลย");
@@ -84,24 +43,20 @@ async function fetchDateRangeFromDB() {
 
 async function fetchHistoricalWeather(datetimeStr) {
     try {
-        // 1. จัดการ Format วันที่ให้ตรงกับในไฟล์ CSV (YYYY-MM-DDTHH:00:00)
         const dateObj = new Date(datetimeStr);
         const year = dateObj.getFullYear();
         const month = String(dateObj.getMonth() + 1).padStart(2, '0');
         const day = String(dateObj.getDate()).padStart(2, '0');
         const hour = String(dateObj.getHours()).padStart(2, '0');
-        
         const targetDateStr = `${year}-${month}-${day}T${hour}:00:00`;
 
-        // 2. อ่านไฟล์ CSV 
         const response = await fetch('../data/weatherdb.csv');
-        if (!response.ok) throw new Error("ไม่สามารถอ่านไฟล์ weatherdb.csv ได้ (โปรดตรวจสอบว่าไฟล์อยู่ในโฟลเดอร์เดียวกัน)");
+        if (!response.ok) throw new Error("ไม่สามารถอ่านไฟล์ weatherdb.csv ได้");
         
         const csvText = await response.text();
         const rows = csvText.split('\n');
         const headers = rows[0].split(',');
         
-        // หาตำแหน่ง Index
         const dateIdx = headers.indexOf('datetime');
         const tempIdx = headers.indexOf('temp');
         const humidityIdx = headers.indexOf('humidity');
@@ -111,11 +66,9 @@ async function fetchHistoricalWeather(datetimeStr) {
         const solarIdx = headers.indexOf('solarradiation');
         const condIdx = headers.indexOf('conditions');
 
-        // 🌟 ปรับปรุง: 3. ตรวจสอบขอบเขตเวลา (Min-Max Range Validation)
         let firstDateStr = null;
         let lastDateStr = null;
 
-        // หาเวลาเริ่มต้น (แถวแรกที่มีข้อมูล)
         for (let i = 1; i < rows.length; i++) {
             if (rows[i].trim()) {
                 const cols = rows[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
@@ -126,7 +79,6 @@ async function fetchHistoricalWeather(datetimeStr) {
             }
         }
 
-        // หาเวลาสิ้นสุด (แถวสุดท้ายที่มีข้อมูล)
         for (let i = rows.length - 1; i >= 1; i--) {
             if (rows[i].trim()) {
                 const cols = rows[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
@@ -137,12 +89,10 @@ async function fetchHistoricalWeather(datetimeStr) {
             }
         }
 
-        // เช็คว่าเวลาที่ผู้ใช้กรอก อยู่ในขอบเขตหรือไม่
         if (targetDateStr < firstDateStr || targetDateStr > lastDateStr) {
             throw new Error(`อยู่นอกขอบเขตฐานข้อมูล! กรุณาเลือกเวลาใหม่อีกครั้ง\n(ข้อมูลที่มี: ${firstDateStr.replace('T', ' ')} ถึง ${lastDateStr.replace('T', ' ')})`);
         }
 
-        // 4. ค้นหาแถวข้อมูลที่เวลาตรงกัน
         let matchedRow = null;
         for (let i = 1; i < rows.length; i++) {
             if (!rows[i].trim()) continue; 
@@ -157,7 +107,6 @@ async function fetchHistoricalWeather(datetimeStr) {
             throw new Error(`ไม่มีข้อมูลของเวลา ${targetDateStr.replace('T', ' ')} ในไฟล์ CSV`);
         }
 
-        // 5. สกัดข้อมูลตัวแปรที่เกี่ยวข้อง
         const tc = parseFloat(matchedRow[tempIdx]) || 0;
         const rh = parseFloat(matchedRow[humidityIdx]) || 0;
         const precip = parseFloat(matchedRow[precipIdx]) || 0;
@@ -166,7 +115,6 @@ async function fetchHistoricalWeather(datetimeStr) {
         const solarradiation = parseFloat(matchedRow[solarIdx]) || 0;
         const conditions_text = (matchedRow[condIdx] || "Unknown").replace(/"/g, ''); 
 
-        // 6. Logic จัดกลุ่มสภาพอากาศแบบ 4 กลุ่มใหม่
         let status = "ฟ้าโปร่ง";
         let label = 0;
         let icon = "☀️";
@@ -190,9 +138,7 @@ async function fetchHistoricalWeather(datetimeStr) {
 
     } catch (err) {
         console.error("CSV Read Error:", err);
-        
         alert(err.message);
-        
         return { 
             status: "Error", label: 0, icon: "❓", 
             tc: 0, rh: 0, precip: 0, cloudcover: 0, visibility: 0, solarradiation: 0, 
@@ -201,27 +147,9 @@ async function fetchHistoricalWeather(datetimeStr) {
     }
 }
 
-function rgbToHsv(r, g, b) {
-    r /= 255; g /= 255; b /= 255;
-    let max = Math.max(r, g, b), min = Math.min(r, g, b);
-    let h, s, v = max;
-    let d = max - min;
-    s = max === 0 ? 0 : d / max;
-    if (max == min) { h = 0; } else {
-        switch (max) {
-            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-            case g: h = (b - r) / d + 2; break;
-            case b: h = (r - g) / d + 4; break;
-        }
-        h /= 6;
-    }
-    return [Math.round(h * 179), Math.round(s * 255), Math.round(v * 255)];
-}
-
 // ==========================================
 // 2. IMAGE PROCESSING (แปลงไฟล์เป็น JPG)
 // ==========================================
-// แปลงไฟล์ภาพทุกชนิดเป็น JPG 95% Quality โดยไม่ครอบตัด (คงขนาด Original)
 function convertToJPG(file) {
     return new Promise((resolve, reject) => {
         const img = new Image();
@@ -233,10 +161,8 @@ function convertToJPG(file) {
             canvas.height = img.height;
             const ctx = canvas.getContext('2d');
             
-            // วาดภาพต้นฉบับลง Canvas
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
             
-            // แปลงเป็น JPG Base64
             const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
             const base64Data = dataUrl.split(',')[1];
             resolve(base64Data);
@@ -251,7 +177,7 @@ function convertToJPG(file) {
 // ==========================================
 class SkyWeatherModel {
     constructor() {
-        this.records = []; // เก็บ Metadata เพื่อรอส่งขึ้น Github
+        this.records = []; 
         this.pendingUploads = [];
     }
 }
@@ -262,26 +188,10 @@ const globalModel = new SkyWeatherModel();
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
 
-    fetchDateRangeFromDB(); // ดึงขอบเขตเวลา
+    fetchDateRangeFromDB();
     
     // ------------------------------------------
-    // 4.1 โหลดข้อมูลการตั้งค่า GitHub อัตโนมัติ (Local Storage)
-    // ------------------------------------------
-    if (localStorage.getItem('ghOwner')) document.getElementById('ghOwner').value = localStorage.getItem('ghOwner');
-    if (localStorage.getItem('ghRepo')) document.getElementById('ghRepo').value = localStorage.getItem('ghRepo');
-    if (localStorage.getItem('ghPath')) document.getElementById('ghPath').value = localStorage.getItem('ghPath');
-    if (localStorage.getItem('ghImageFolder')) document.getElementById('ghImageFolder').value = localStorage.getItem('ghImageFolder');
-    if (localStorage.getItem('ghToken')) document.getElementById('ghToken').value = localStorage.getItem('ghToken');
-
-    const inputsToSave = ['ghOwner', 'ghRepo', 'ghPath', 'ghImageFolder', 'ghToken'];
-    inputsToSave.forEach(id => {
-        document.getElementById(id).addEventListener('input', function(e) {
-            localStorage.setItem(id, e.target.value);
-        });
-    });
-
-    // ------------------------------------------
-    // 4.2 ตรวจจับการเลือกไฟล์ภาพ (ที่หายไป)
+    // 4.1 ตรวจจับการเลือกไฟล์ภาพ (รวมเป็นฟังก์ชันเดียว)
     // ------------------------------------------
     document.getElementById('images').addEventListener('change', function(e) {
         const files = e.target.files;
@@ -305,18 +215,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 </div>`;
             });
 
-            // 🌟 เติมระบบดีดกลับ: ดักจับถ้าผู้ใช้ฝืนพิมพ์วันที่ผิด
             const dateInputs = document.querySelectorAll('.datetime-input');
             dateInputs.forEach(input => {
                 input.addEventListener('change', function() {
                     if (dbMinDate && dbMaxDate) {
                         if (this.value < dbMinDate || this.value > dbMaxDate) {
-                            // เด้ง Pop-up แจ้งเตือน
                             alert(`⚠️ วันที่อยู่นอกขอบเขตฐานข้อมูล!\n\nกรุณาเลือกเวลาในช่วง:\n${dbMinDate.replace('T', ' ')} ถึง ${dbMaxDate.replace('T', ' ')}`);
-                            
-                            this.value = ''; // เคลียร์ช่องปฏิทินให้ว่าง
-                            
-                            // ดึงเคอร์เซอร์กลับไปบังคับให้กรอกใหม่
+                            this.value = ''; 
                             setTimeout(() => this.focus(), 10); 
                         }
                     }
@@ -329,14 +234,16 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     
     // ------------------------------------------
-    // 4.3 เมื่อกดปุ่มเตรียมข้อมูล (ดึงสภาพอากาศเบื้องต้น + เตรียมอัปโหลด)
+    // 4.2 เมื่อกดปุ่มเตรียมข้อมูล
     // ------------------------------------------
     document.getElementById('trainForm').addEventListener('submit', async function(e) {
         e.preventDefault();
 
         const files = document.getElementById('images').files;
         const inputs = document.querySelectorAll('.datetime-input');
-        const imgFolder = document.getElementById('ghImageFolder').value.replace(/\/$/, ""); 
+        
+        // 🌟 ตั้งชื่อโฟลเดอร์สำหรับเก็บภาพแบบอัตโนมัติ
+        const imgFolder = "images"; 
         
         document.getElementById('loadingText').innerText = "กำลังประมวลผล แปลงเป็น JPG และดึงข้อมูลสภาพอากาศ...";
         document.getElementById('loading').style.display = 'block';
@@ -355,16 +262,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 const weatherInfo = await fetchHistoricalWeather(inputTime);
                 if (weatherInfo.status === "Error") continue;
 
-                // 🌟 ดึงเวลามาแปลงสัญลักษณ์ ':' เป็น '_' เพื่อใช้ตั้งชื่อไฟล์ให้ปลอดภัย
-                // เช่น "2025-01-01T14:30" จะกลายเป็น "2025-01-01T14_30.jpg"
                 const safeTimeStr = inputTime.replace(/:/g, '_');
                 const uniqueFilename = `${safeTimeStr}.jpg`;
                 const fullImagePath = `${imgFolder}/${uniqueFilename}`;
                 
-                // สร้างพรีวิวสำหรับหน้าเว็บ
                 const previewUrl = URL.createObjectURL(file);
 
-                // แสดงผลบนหน้าเว็บ (แสดงแค่ข้อมูล ไม่โชว์ค่าสีแล้ว)
                 let badgeClass = "";
                 let badgeText = "";
                 switch(weatherInfo.label) {
@@ -374,7 +277,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     case 3: badgeClass = "bg-dark text-white"; badgeText = "กลุ่ม 3 (ฟ้ามืด)"; break;
                 }
 
-                // อัปเดตตาราง HTML (แสดงข้อมูลสภาพอากาศแบบละเอียด + ลบคอลัมน์สีออก)
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>
@@ -384,7 +286,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         <div class="fw-bold text-muted" style="font-size: 0.85em;">${inputTime.replace('T', ' ')}</div>
                         <div class="fw-bold mt-1 text-primary">${weatherInfo.status} ${weatherInfo.icon}</div>
                         <div style="font-size: 0.8em; color: #555; margin-top: 4px;">
-                            🌡️ อุณหภูมิ: ${weatherInfo.tc}°C | 💧 ความชื้น: ${weatherInfo.rh}%<br>
+                            🌡️️ อุณหภูมิ: ${weatherInfo.tc}°C | 💧 ความชื้น: ${weatherInfo.rh}%<br>
                             🌧️ ปริมาณฝน: ${weatherInfo.precip} mm | ☀️ รังสี: ${weatherInfo.solarradiation} W/m²<br>
                             ☁️ เมฆปกคลุม: ${weatherInfo.cloudcover}% | 👀 ทัศนวิสัย: ${weatherInfo.visibility} km
                         </div>
@@ -412,11 +314,10 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // ------------------------------------------
-    // 4.4 เมื่อกด Save ขึ้น GitHub (แปลงไฟล์และอัปโหลด)
+    // 4.3 เมื่อกด Save ขึ้น GitHub (แปลงไฟล์และอัปโหลด)
     // ------------------------------------------
     document.getElementById('saveModelBtn').addEventListener('click', async function() {
         
-        // 🌟 ตั้งค่า GitHub อัตโนมัติ (แทนที่ข้อความในเครื่องหมายคำพูดด้วยข้อมูลจริงของคุณ)
         const owner = "suntnaja";
         const repo = "BSbeachcheck.github.io";
         const token = "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";
@@ -427,19 +328,42 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             const totalFiles = globalModel.pendingUploads.length;
             
-            // อัปโหลดรูปภาพทั้งหมด
             for (let i = 0; i < totalFiles; i++) {
                 document.getElementById('loadingText').innerText = `กำลังแปลงไฟล์และอัปโหลดรูปภาพที่ ${i+1}/${totalFiles}...`;
                 const uploadItem = globalModel.pendingUploads[i];
                 
                 const base64Jpg = await convertToJPG(uploadItem.fileData);
-                const url = `https://api.github.com/repos/${owner}/${repo}/contents/${uploadItem.uploadPath}`;
                 
-                await fetch(url, {
+                // ตรวจสอบว่าไฟล์มีอยู่แล้วหรือไม่ (เพื่อหาค่า SHA ถ้าต้องการอัปเดตไฟล์เดิม)
+                const url = `https://api.github.com/repos/${owner}/${repo}/contents/${uploadItem.uploadPath}`;
+                let sha = null;
+                try {
+                    const getRes = await fetch(url, { headers: { "Authorization": `token ${token}` } });
+                    if (getRes.ok) {
+                        const fileData = await getRes.json();
+                        sha = fileData.sha; // เก็บค่า SHA ของไฟล์เก่า
+                    }
+                } catch (e) {
+                    console.log("File not exists, creating new one.");
+                }
+
+                // เตรียมข้อมูลส่ง
+                const payload = {
+                    message: `Upload image ${uploadItem.uploadPath}`,
+                    content: base64Jpg
+                };
+                if (sha) payload.sha = sha; // ถ้ามีไฟล์เดิม ให้ใส่ SHA เข้าไปด้วยเพื่อเขียนทับ
+
+                const response = await fetch(url, {
                     method: "PUT",
                     headers: { "Authorization": `token ${token}`, "Content-Type": "application/json" },
-                    body: JSON.stringify({ message: `Upload image ${uploadItem.uploadPath}`, content: base64Jpg })
+                    body: JSON.stringify(payload)
                 });
+                
+                if (!response.ok) {
+                    const errorMsg = await response.text();
+                    throw new Error(errorMsg);
+                }
             }
 
             alert(`☁️ อัปโหลดเสร็จสมบูรณ์! ไฟล์รูปภาพถูกส่งขึ้น GitHub แล้ว`);
