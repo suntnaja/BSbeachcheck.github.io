@@ -1,14 +1,10 @@
 name: 🚀 Auto Pipeline & Train Model
 
-# กระตุ้นให้ทำงานเมื่อมีการอัปโหลดรูปภาพใหม่เข้ามา
 on:
-  push:
-    branches:
-      - main 
-    paths:
-      - 'images/**' # ปรับให้ตรงกับโฟลเดอร์เก็บรูปภาพของคุณ
+  schedule:
+    # ตั้งให้ตื่นขึ้นมาเช็คทุกๆ 2 ชั่วโมง (นาทีที่ 0 ของชั่วโมงเลขคู่)
+    - cron: '0 */2 * * *' 
 
-# อนุญาตให้บอทสามารถเขียนไฟล์ทับกลับลงไปใน GitHub ได้
 permissions:
   contents: write
 
@@ -19,14 +15,36 @@ jobs:
     steps:
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
+        with:
+          # 🌟 สำคัญ: ต้องดึงประวัติ Git ย้อนหลังมาด้วยเพื่อให้เช็คเวลาไฟล์ได้
+          fetch-depth: 0 
+
+      - name: 🔍 Check for new images
+        id: check
+        run: |
+          # ย้อนดูประวัติ 2 ชั่วโมง 15 นาทีที่ผ่านมา (เผื่อเวลาเซิร์ฟเวอร์ GitHub ดีเลย์)
+          # ว่ามีการอัปโหลดไฟล์ใหม่ในโฟลเดอร์ images/ หรือไม่
+          if [ -z "$(git log --since="135 minutes ago" --name-only -- images/)" ]; then
+            echo "⚠️ ไม่พบรูปภาพใหม่ ข้ามการทำงานเพื่อประหยัดทรัพยากร"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "✅ พบรูปภาพใหม่! เริ่มกระบวนการวิเคราะห์..."
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      # ========================================================
+      # ขั้นตอนด้านล่างนี้จะทำงานก็ต่อเมื่อ has_changes == 'true' เท่านั้น
+      # ========================================================
 
       - name: 🐍 Set up Python
+        if: steps.check.outputs.has_changes == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
       # ติดตั้งไลบรารีแบบมัดรวมสำหรับทั้ง 2 สคริปต์
       - name: 📦 Install all dependencies
+        if: steps.check.outputs.has_changes == 'true'
         run: |
           python -m pip install --upgrade pip
           pip install pandas opencv-python-headless torch torchvision transformers Pillow numpy scikit-learn joblib xgboost lightgbm catboost skl2onnx onnx onnxmltools
@@ -35,6 +53,7 @@ jobs:
       # ลำดับที่ 1: รันสคริปต์สกัดสีท้องฟ้า (สร้าง model_db.csv)
       # ---------------------------------------------------------
       - name: ⚙️ Step 1 - Run Data Pipeline
+        if: steps.check.outputs.has_changes == 'true'
         run: |
           python backend/train/data_pipeline.py
 
@@ -42,6 +61,7 @@ jobs:
       # ลำดับที่ 2: รันสคริปต์เทรนโมเดล (อ่าน model_db.csv -> สร้าง .pkl)
       # ---------------------------------------------------------
       - name: 🧠 Step 2 - Run Training Script
+        if: steps.check.outputs.has_changes == 'true'
         run: |
           python backend/train/train_model.py
 
@@ -49,6 +69,7 @@ jobs:
       # ลำดับที่ 3: บันทึกไฟล์ทั้งหมดกลับขึ้น GitHub
       # ---------------------------------------------------------
       - name: 💾 Step 3 - Commit and Push all results
+        if: steps.check.outputs.has_changes == 'true'
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
