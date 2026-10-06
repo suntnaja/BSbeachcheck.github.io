@@ -58,7 +58,7 @@ jobs:
           python backend/train/data_pipeline.py
 
       # ---------------------------------------------------------
-      # ลำดับที่ 2: รันสคริปต์เทรนโมเดล (อ่าน model_db.csv -> สร้าง .pkl)
+      # ลำดับที่ 2: รันสคริปต์เทรนโมเดล (อ่าน model_db.csv -> สร้าง .onnx)
       # ---------------------------------------------------------
       - name: 🧠 Step 2 - Run Training Script
         if: steps.check.outputs.has_changes == 'true'
@@ -74,7 +74,7 @@ jobs:
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           
-          # ใช้ git add . เพื่อกวาดเก็บทั้ง model_db.csv และไฟล์โมเดล .pkl
+          # ใช้ git add . เพื่อกวาดเก็บทั้ง model_db.csv และไฟล์โมเดล .onnx
           git add .
           
           # เช็คว่ามีไฟล์เปลี่ยนจริงไหมก่อน commit เพื่อป้องกัน Error
