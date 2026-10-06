@@ -1,3 +1,38 @@
+// ------------------------------------------
+// 1. ดักจับเหตุการณ์เมื่อมีการเลือกไฟล์รูปภาพ
+// ------------------------------------------
+document.getElementById('images').addEventListener('change', function(event) {
+    const files = event.target.files;
+    const dateTimeSection = document.getElementById('dateTimeInputSection');
+    const fileListContainer = document.getElementById('fileListContainer');
+
+    // ล้างข้อมูลเก่าออกก่อน
+    fileListContainer.innerHTML = '';
+
+    // ถ้ามีการเลือกไฟล์เข้ามา
+    if (files.length > 0) {
+        // 🌟 สั่งให้ส่วนระบุเวลาแสดงขึ้นมา
+        dateTimeSection.style.display = 'block';
+
+        // วนลูปสร้างช่องกรอกเวลาสำหรับรูปภาพแต่ละไฟล์
+        Array.from(files).forEach((file, index) => {
+            const fileBox = document.createElement('div');
+            fileBox.className = 'mb-3 p-3 border rounded bg-white shadow-sm';
+            
+            // สร้าง Label บอกชื่อไฟล์ และ Input สำหรับเลือกเวลา
+            fileBox.innerHTML = `
+                <label class="form-label text-secondary fw-bold mb-1">📷 ภาพที่ ${index + 1}: ${file.name}</label>
+                <input type="datetime-local" class="form-control file-time-input" data-index="${index}" required>
+            `;
+            fileListContainer.appendChild(fileBox);
+        });
+    } else {
+        // ถ้าผู้ใช้กดยกเลิกการเลือกไฟล์ ให้ซ่อนส่วนนี้กลับไปเหมือนเดิม
+        dateTimeSection.style.display = 'none';
+    }
+});
+
+
 // ==========================================
 // 1. DATA INGESTION & PREPROCESSING (dmt API)
 // ==========================================
