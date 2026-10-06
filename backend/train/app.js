@@ -380,11 +380,13 @@ document.addEventListener("DOMContentLoaded", () => {
     // 4.4 เมื่อกด Save ขึ้น GitHub (แปลงไฟล์และอัปโหลด)
     // ------------------------------------------
     document.getElementById('saveModelBtn').addEventListener('click', async function() {
-        const owner = document.getElementById('ghOwner').value;
-        const repo = document.getElementById('ghRepo').value;
-        const token = document.getElementById('ghToken').value;
+        
+        // 🌟 ตั้งค่า GitHub อัตโนมัติ (แทนที่ข้อความในเครื่องหมายคำพูดด้วยข้อมูลจริงของคุณ)
+        const owner = "suntnaja";
+        const repo = "BSbeachcheck.github.io";
+        const token = "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";
 
-        if(!owner || !repo || !token) return alert("กรุณากรอกข้อมูล GitHub ให้ครบ");
+        if(!owner || !repo || !token) return alert("กรุณาใส่ข้อมูล GitHub ในไฟล์ app.js ให้ครบ");
         document.getElementById('loading').style.display = 'block';
         
         try {
