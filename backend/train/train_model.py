@@ -1,38 +1,42 @@
 import pandas as pd
 import numpy as np
 import os
-import joblib
+from datetime import datetime
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, mean_absolute_error
+# 🌟 เพิ่ม classification_report และ confusion_matrix
+from sklearn.metrics import accuracy_score, mean_absolute_error, classification_report, confusion_matrix
+from sklearn.multioutput import MultiOutputRegressor
 
-# 🌟 เพิ่มโมดูลสำหรับแปลงเป็น ONNX
-from skl2onnx import convert_sklearn
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.ensemble import HistGradientBoostingClassifier, HistGradientBoostingRegressor
+from xgboost import XGBClassifier, XGBRegressor
+from lightgbm import LGBMClassifier, LGBMRegressor
+from catboost import CatBoostClassifier, CatBoostRegressor
+
+from skl2onnx import convert_sklearn, update_registered_converter
 from skl2onnx.common.data_types import FloatTensorType
+from skl2onnx.common.shape_calculator import calculate_linear_classifier_output_shapes, calculate_linear_regressor_output_shapes
+from onnxmltools.convert.xgboost.operator_converters.XGBoost import convert_xgboost
+from onnxmltools.convert.lightgbm.operator_converters.LightGbm import convert_lightgbm
+
+try:
+    update_registered_converter(XGBClassifier, 'XGBoostXGBClassifier', calculate_linear_classifier_output_shapes, convert_xgboost)
+    update_registered_converter(XGBRegressor, 'XGBoostXGBRegressor', calculate_linear_regressor_output_shapes, convert_xgboost)
+    update_registered_converter(LGBMClassifier, 'LightGBMLGBMClassifier', calculate_linear_classifier_output_shapes, convert_lightgbm)
+    update_registered_converter(LGBMRegressor, 'LightGBMLGBMRegressor', calculate_linear_regressor_output_shapes, convert_lightgbm)
+except Exception:
+    pass 
 
 def load_and_prepare_data(csv_file_path):
     print(f"กำลังอ่านข้อมูลจากไฟล์: {csv_file_path}...")
-    
-    # 🌟 ปรับปรุง: ใช้ Pandas อ่านไฟล์ CSV โดยตรง
     df = pd.read_csv(csv_file_path)
-    print(f"จำนวนข้อมูลทั้งหมดที่โหลดได้: {len(df)} รายการ")
     
     required_columns = [
-        'timestamp', 
-        'R_mean', 'G_mean', 'B_mean', 'H_mean', 'S_mean', 'V_mean', 
-        'env_temp', 'env_humidity', 'env_precip', 'env_cloudcover', 'env_visibility', 'env_solarradiation',
-        'label'
+        'timestamp', 'R_mean', 'G_mean', 'B_mean', 'H_mean', 'S_mean', 'V_mean', 
+        'env_temp', 'env_humidity', 'env_precip', 'env_cloudcover', 'env_visibility', 'env_solarradiation', 'label'
     ]
-    
-    missing_cols = [col for col in required_columns if col not in df.columns]
-    if missing_cols:
-        print(f"⚠️ คำเตือน: ข้อมูลเก่าไม่มีคอลัมน์ต่อไปนี้: {missing_cols}")
-        for col in missing_cols:
-            df[col] = 0
-            
     df_clean = df.dropna(subset=required_columns).copy()
     
-    # เรียงลำดับข้อมูลตามเวลา (Time Series / Chronological Order)
     if 'timestamp' in df_clean.columns:
         df_clean['timestamp'] = pd.to_datetime(df_clean['timestamp'])
         df_clean = df_clean.sort_values('timestamp').reset_index(drop=True)
@@ -40,93 +44,98 @@ def load_and_prepare_data(csv_file_path):
     return df_clean
 
 def train_and_evaluate(df):
-    print("\nเริ่มกระบวนการ Train โมเดล 2 ระบบ (ทำนายสภาพอากาศ + ทำนายค่าสี)...")
-    
-    # ตัวแปรต้น (Features) ตอนนี้ใช้แค่สภาพอากาศล้วนๆ
-    features = [
-        'env_temp', 'env_humidity', 'env_precip', 'env_cloudcover', 'env_visibility', 'env_solarradiation'
-    ]
-    
+    features = ['env_temp', 'env_humidity', 'env_precip', 'env_cloudcover', 'env_visibility', 'env_solarradiation']
     X = df[features]
+    y_label = df['label']
+    y_colors = df[['R_mean', 'G_mean', 'B_mean', 'H_mean', 'S_mean', 'V_mean']]
     
-    # ตัวแปรตาม (Targets) แยกเป็น 2 ชุด
-    y_label = df['label'] # สำหรับ Classifier
-    y_colors = df[['R_mean', 'G_mean', 'B_mean', 'H_mean', 'S_mean', 'V_mean']] # สำหรับ Regressor
-    
-    # แบ่งข้อมูลแบบ Time Series (อดีต 80% สำหรับ Train, ล่าสุด 20% สำหรับ Test)
     X_train, X_test, y_label_train, y_label_test, y_colors_train, y_colors_test = train_test_split(
         X, y_label, y_colors, test_size=0.2, shuffle=False
     )
     
-    print(f"แบ่งข้อมูลสำหรับ Train (อดีต): {len(X_train)} รายการ")
-    print(f"แบ่งข้อมูลสำหรับ Test (ล่าสุด): {len(X_test)} รายการ\n")
-    
-    # ==========================================
-    # 1. เทรนโมเดลแยกประเภทสภาพอากาศ (Classification)
-    # ==========================================
-    clf_model = RandomForestClassifier(n_estimators=100, max_depth=10, random_state=42)
-    clf_model.fit(X_train, y_label_train)
-    
-    print("="*50)
-    print("🎯 ผลประเมินที่ 1: การทำนายสถานะท้องฟ้า (4 กลุ่ม)")
-    print("="*50)
-    y_label_pred = clf_model.predict(X_test)
-    print(f"ความแม่นยำรวม (Accuracy): {accuracy_score(y_label_test, y_label_pred) * 100:.2f}%\n")
-    
-    # อัปเดตรายชื่อกลุ่มให้ครบ 4 หมวด
-    target_names = ["Clear (0)", "Cloudy (1)", "Gloomy (2)", "Dark (3)"]
-    
-    try:
-        print("รายละเอียดการแยกคลาส (Classification Report):")
-        # แจ้งชื่อคลาสโดยจำกัดตามจำนวนคลาสที่พบใน y_label_test จริง
-        unique_labels = sorted(y_label_test.unique())
-        actual_target_names = [target_names[i] for i in unique_labels]
-        print(classification_report(y_label_test, y_label_pred, target_names=actual_target_names))
-    except Exception:
-        print(classification_report(y_label_test, y_label_pred))
-    
-    print("ตารางเมทริกซ์ความสับสน (Confusion Matrix):")
-    cm = confusion_matrix(y_label_test, y_label_pred)
-    
-    # ดึงชื่อคลาสที่มีจริงในข้อมูลเพื่อมาทำหัวตาราง
-    unique_labels_all = sorted(set(y_label_test) | set(y_label_pred))
-    matrix_names = [target_names[i] for i in unique_labels_all]
-    
-    print(pd.DataFrame(
-        cm, 
-        index=[f"Actual {name}" for name in matrix_names], 
-        columns=[f"Predicted {name}" for name in matrix_names]
-    ))
-
-    # ==========================================
-    # 2. เทรนโมเดลทำนายตัวเลขค่าสี (Multi-output Regression)
-    # ==========================================
-    color_model = RandomForestRegressor(n_estimators=100, max_depth=10, random_state=42)
-    color_model.fit(X_train, y_colors_train)
-
-    print("\n" + "="*50)
-    print("🎨 ผลประเมินที่ 2: การทำนายค่าสีท้องฟ้า (RGB / HSV)")
-    print("="*50)
-    y_colors_pred = color_model.predict(X_test)
-    
-    # คำนวณค่าความคลาดเคลื่อนเฉลี่ย (Mean Absolute Error) ของสีแต่ละตัว
-    mae_scores = mean_absolute_error(y_colors_test, y_colors_pred, multioutput='raw_values')
-    color_names = ['R_mean', 'G_mean', 'B_mean', 'H_mean', 'S_mean', 'V_mean']
-    
-    print("ความคลาดเคลื่อนเฉลี่ย (ตัวเลขยิ่งน้อยยิ่งแม่นยำ):")
-    for i, color in enumerate(color_names):
-        print(f" - {color}: +/- {mae_scores[i]:.2f} หน่วย")
-
-    # ==========================================
-    # 3. แพ็ครวมโมเดลทั้ง 2 ตัวเข้าด้วยกันเป็น Dictionary
-    # ==========================================
-    combined_model = {
-        'classifier': clf_model,
-        'color_predictor': color_model,
-        'feature_names': features
+    models = {
+        'RandomForest': {
+            'clf': RandomForestClassifier(n_estimators=100, random_state=42),
+            'reg': RandomForestRegressor(n_estimators=100, random_state=42)
+        },
+        'HistGradient': {
+            'clf': HistGradientBoostingClassifier(random_state=42),
+            'reg': MultiOutputRegressor(HistGradientBoostingRegressor(random_state=42))
+        },
+        'XGBoost': {
+            'clf': XGBClassifier(use_label_encoder=False, eval_metric='mlogloss', random_state=42),
+            'reg': MultiOutputRegressor(XGBRegressor(random_state=42))
+        },
+        'LightGBM': {
+            'clf': LGBMClassifier(random_state=42, verbose=-1),
+            'reg': MultiOutputRegressor(LGBMRegressor(random_state=42, verbose=-1))
+        },
+        'CatBoost': {
+            'clf': CatBoostClassifier(verbose=0, random_state=42),
+            'reg': MultiOutputRegressor(CatBoostRegressor(verbose=0, random_state=42))
+        }
     }
+
+    trained_models = {}
+    target_names_list = ["Clear (0)", "Cloudy (1)", "Gloomy (2)", "Dark (3)"]
     
-    return combined_model
+    print("\nเริ่มกระบวนการ Train โมเดลทั้ง 5 ชนิด...")
+    for name, m in models.items():
+        print(f"\n" + "="*50)
+        print(f"🚀 ผลประเมินโมเดล: {name}")
+        print("="*50)
+        
+        # 1. เทรนและประเมิน Classification
+        m['clf'].fit(X_train, y_label_train)
+        y_label_pred = m['clf'].predict(X_test)
+        acc = accuracy_score(y_label_test, y_label_pred)
+        
+        print(f"🎯 ความแม่นยำสถานะท้องฟ้า (Accuracy): {acc * 100:.2f}%\n")
+        
+        # 🌟 เพิ่ม Classification Report
+        try:
+            unique_labels = sorted(y_label_test.unique())
+            actual_target_names = [target_names_list[i] for i in unique_labels]
+            print("📊 รายละเอียดการแยกคลาส (Classification Report):")
+            print(classification_report(y_label_test, y_label_pred, target_names=actual_target_names))
+        except Exception:
+            print("📊 รายละเอียดการแยกคลาส (Classification Report):")
+            print(classification_report(y_label_test, y_label_pred))
+            
+        # 🌟 เพิ่ม Confusion Matrix
+        print("ตารางเมทริกซ์ความสับสน (Confusion Matrix):")
+        cm = confusion_matrix(y_label_test, y_label_pred)
+        unique_labels_all = sorted(set(y_label_test) | set(y_label_pred))
+        matrix_names = [target_names_list[i] for i in unique_labels_all]
+        
+        cm_df = pd.DataFrame(
+            cm, 
+            index=[f"Actual {n}" for n in matrix_names], 
+            columns=[f"Pred {n}" for n in matrix_names]
+        )
+        print(cm_df)
+        print("-" * 50)
+        
+        # 2. เทรนและประเมิน Regression
+        m['reg'].fit(X_train, y_colors_train)
+        y_colors_pred = m['reg'].predict(X_test)
+        mae = mean_absolute_error(y_colors_test, y_colors_pred)
+        
+        print(f"🎨 ความคลาดเคลื่อนสีเฉลี่ยโดยรวม (MAE): +/- {mae:.2f} หน่วย")
+        
+        trained_models[name] = m
+
+    return trained_models
+
+def save_to_onnx(model, filepath, initial_type):
+    try:
+        onnx_model = convert_sklearn(model, initial_types=initial_type, target_opset=12)
+        with open(filepath, "wb") as f:
+            f.write(onnx_model.SerializeToString())
+        return True
+    except Exception as e:
+        print(f"   ⚠️ ไม่สามารถแปลงเป็น ONNX ได้: {e}")
+        return False
 
 if __name__ == "__main__":
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -138,24 +147,27 @@ if __name__ == "__main__":
         if len(df_dataset) < 10:
             print(f"⚠️ ข้อมูลมีน้อยเกินไป (น้อยกว่า 10 รูป) แนะนำให้เก็บเพิ่มก่อน")
         else:
-            trained_model = train_and_evaluate(df_dataset)
-            
-            # 🌟 กำหนดรูปแบบ Input: เรามีตัวแปรสภาพอากาศ 6 ตัว เป็นตัวเลขทศนิยม (Float)
+            all_trained_models = train_and_evaluate(df_dataset)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M")
             initial_type = [('float_input', FloatTensorType([None, 6]))]
             
-            # 1. แปลงและเซฟโมเดลทำนายสถานะสภาพอากาศ (Classifier)
-            onnx_clf = convert_sklearn(trained_model['classifier'], initial_types=initial_type)
-            clf_path = os.path.join(BASE_DIR, '..', 'data', 'weather_classifier.onnx')
-            with open(clf_path, "wb") as f:
-                f.write(onnx_clf.SerializeToString())
+            print("\n💾 กำลังแปลงและบันทึกไฟล์โมเดลเป็น .onnx ...")
+            for model_name, models in all_trained_models.items():
+                print(f"\nกำลังประมวลผลเซ็ต: {model_name}")
                 
-            # 2. แปลงและเซฟโมเดลทำนายค่าสี (Regressor)
-            onnx_color = convert_sklearn(trained_model['color_predictor'], initial_types=initial_type)
-            color_path = os.path.join(BASE_DIR, '..', 'data', 'color_regressor.onnx')
-            with open(color_path, "wb") as f:
-                f.write(onnx_color.SerializeToString())
+                clf_filename = f"{model_name}_Classifier_{timestamp}.onnx"
+                reg_filename = f"{model_name}_Regressor_{timestamp}.onnx"
+                
+                clf_path = os.path.join(BASE_DIR, '..', 'data', clf_filename)
+                reg_path = os.path.join(BASE_DIR, '..', 'data', reg_filename)
+                
+                if save_to_onnx(models['clf'], clf_path, initial_type):
+                    print(f"   ✅ บันทึก {clf_filename} สำเร็จ")
+                
+                if save_to_onnx(models['reg'], reg_path, initial_type):
+                    print(f"   ✅ บันทึก {reg_filename} สำเร็จ")
             
-            print(f"\n✅ บันทึกโมเดล ONNX เสร็จสมบูรณ์! (แยกเป็น 2 ไฟล์)")
+            print("\n🎉 กระบวนการสร้างไฟล์โมเดลเสร็จสมบูรณ์!")
             
     except Exception as e:
         print(f"❌ เกิดข้อผิดพลาด: {e}")
