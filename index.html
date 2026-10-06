@@ -148,7 +148,7 @@
 
     // อ่านและแปลงไฟล์ model_db.csv เป็น JSON object (รันเมื่อโหลดหน้าเว็บ)
     window.onload = async function() {
-        onst now = new Date();
+        const now = new Date();
         
         // --- ส่วนที่เพิ่มใหม่: จัดการเวลาเริ่มต้นให้อยู่ในช่วง 06:00 - 18:59 เสมอ ---
         let currentHour = now.getHours();
