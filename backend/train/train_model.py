@@ -94,41 +94,37 @@ def train_and_evaluate(df):
             print(f"🎯 ความแม่นยำสถานะท้องฟ้า (Accuracy): {acc * 100:.2f}%\n")
         
         # 🌟 เพิ่ม Classification Report
-        try:
             unique_labels = sorted(y_label_test.unique())
             actual_target_names = [target_names_list[i] for i in unique_labels]
             print("📊 รายละเอียดการแยกคลาส (Classification Report):")
             print(classification_report(y_label_test, y_label_pred, target_names=actual_target_names))
-        except Exception:
-            print("📊 รายละเอียดการแยกคลาส (Classification Report):")
-            print(classification_report(y_label_test, y_label_pred))
             
-        # 🌟 เพิ่ม Confusion Matrix
-        print("ตารางเมทริกซ์ความสับสน (Confusion Matrix):")
-        cm = confusion_matrix(y_label_test, y_label_pred)
-        unique_labels_all = sorted(set(y_label_test) | set(y_label_pred))
-        matrix_names = [target_names_list[i] for i in unique_labels_all]
+            # 🌟 เพิ่ม Confusion Matrix
+            print("ตารางเมทริกซ์ความสับสน (Confusion Matrix):")
+            cm = confusion_matrix(y_label_test, y_label_pred)
+            unique_labels_all = sorted(set(y_label_test) | set(y_label_pred))
+            matrix_names = [target_names_list[i] for i in unique_labels_all]
         
-        cm_df = pd.DataFrame(
-            cm, 
-            index=[f"Actual {n}" for n in matrix_names], 
-            columns=[f"Pred {n}" for n in matrix_names]
-        )
-        print(cm_df)
-        print("-" * 50)
-        
-        # 2. เทรนและประเมิน Regression
+            cm_df = pd.DataFrame(
+                cm, 
+                index=[f"Actual {n}" for n in matrix_names], 
+                columns=[f"Pred {n}" for n in matrix_names]
+            )
+            print(cm_df)
+            print("-" * 50)
+            
+            # 2. เทรนและประเมิน Regression
             m['reg'].fit(X_train, y_colors_train)
             y_colors_pred = m['reg'].predict(X_test)
             mae = mean_absolute_error(y_colors_test, y_colors_pred)
-            
+                
             print(f"🎨 ความคลาดเคลื่อนสีเฉลี่ยโดยรวม (MAE): +/- {mae:.2f} หน่วย")
-            
+                
             # เก็บเฉพาะโมเดลที่ Train ผ่านเข้าสู่ดิกชันนารีเพื่อรอเซฟเป็น .onnx
             trained_models[name] = m
         
         except Exception as e:
-            # 🌟 หากโมเดลไหน Error (เช่น XGBoost ขาดคลาส) ระบบจะแจ้งเตือนแล้วข้ามไปโมเดลถัดไป
+            # ดักจับ Error ที่อาจเกิดขึ้นจากโมเดล (เช่น XGBoost ขาดคลาส)
             print(f"⚠️ ไม่สามารถ Train โมเดล {name} ได้: {e}")
             print(f"-> ข้ามการสร้างโมเดล {name}")
             continue
