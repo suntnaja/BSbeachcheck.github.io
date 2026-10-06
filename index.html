@@ -78,13 +78,28 @@
                     <label for="datetimeInput"><i class="fa-regular fa-calendar-days"></i> เลือกวันและเวลาที่ต้องการพยากรณ์</label>
                     <input type="datetime-local" id="datetimeInput" class="form-control" required>
                 </div>
+
+                <div class="form-group">
+                    <label for="modelSelect"><i class="fa-solid fa-brain"></i> เลือกโมเดลพยากรณ์</label>
+                    <select id="modelSelect" class="form-control">
+                        <option value="RandomForest">Random Forest</option>
+                        <option value="CatBoost">CatBoost</option>
+                        <option value="XGBoost">XGBoost</option>
+                        <option value="LightGBM">LightGBM</option>
+                        <option value="HistGradientBoosting">HistGradientBoosting</option>
+                    </select>
+                </div>
+                
                 <button type="submit" class="btn-submit" id="submitBtn">
                     <i class="fa-solid fa-wand-magic-sparkles"></i> พยากรณ์ท้องฟ้า
                 </button>
             </form>
         </div>
+
+        <div id="metadataDisplay" style="font-size: 0.8rem; color: var(--primary); text-align: center; margin-top: 12px; font-weight: 500;"></div>
+        
         <div style="font-size: 0.75rem; color: var(--text-sub); text-align: center; margin-top: 20px;">
-            ดึงข้อมูลสภาพอากาศเรียลไทม์จากกรมอุตุนิยมวิทยา (TMD API) และพยากรณ์ด้วย ML Model
+            ดึงข้อมูลสภาพอากาศเรียลไทม์ และพยากรณ์ด้วย ML Model
         </div>
     </div>
 
@@ -133,9 +148,35 @@
 
     // อ่านและแปลงไฟล์ model_db.csv เป็น JSON object (รันเมื่อโหลดหน้าเว็บ)
     window.onload = async function() {
-        const now = new Date();
+        onst now = new Date();
+        
+        // --- ส่วนที่เพิ่มใหม่: จัดการเวลาเริ่มต้นให้อยู่ในช่วง 06:00 - 18:59 เสมอ ---
+        let currentHour = now.getHours();
+        if (currentHour < 6) {
+            now.setHours(6, 0, 0, 0); // ถ้าเปิดเว็บตอนดึก-เช้ามืด ให้ปัดเป็น 06:00 น.
+        } else if (currentHour >= 19) {
+            now.setHours(18, 59, 0, 0); // ถ้าเปิดเว็บตอนค่ำ ให้ปัดเป็น 18:59 น.
+        }
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-        document.getElementById('datetimeInput').value = now.toISOString().slice(0, 16);
+        
+        const datetimeInput = document.getElementById('datetimeInput');
+        datetimeInput.value = now.toISOString().slice(0, 16);
+
+        // ดักจับเมื่อผู้ใช้กดเปลี่ยนเวลาในปฏิทิน
+        datetimeInput.addEventListener('change', function(e) {
+            if (!this.value) return;
+            const selectedDate = new Date(this.value);
+            const hour = selectedDate.getHours();
+            
+            // ถ้าเลือกเวลานอกช่วง 06:00 - 18:59
+            if (hour < 6 || hour >= 19) {
+                alert("สามารถพยากรณ์ได้เฉพาะช่วงเวลากลางวัน (06:00 น. - 18:59 น.) เท่านั้นครับ");
+                // บังคับเปลี่ยนเวลากลับมาเป็น 06:00 น. ของวันนั้น
+                selectedDate.setHours(6, 0, 0, 0);
+                const offset = selectedDate.getTimezoneOffset() * 60000;
+                this.value = (new Date(selectedDate - offset)).toISOString().slice(0,16);
+            }
+        });
 
         try {
             const response = await fetch('./backend/data/model_db.csv');
@@ -286,6 +327,12 @@
         const submitBtn = document.getElementById('submitBtn');
         const rawDatetime = document.getElementById('datetimeInput').value;
 
+        const checkHour = new Date(rawDatetime).getHours();
+        if (checkHour < 6 || checkHour >= 19) {
+            alert("กรุณาเลือกเวลาให้อยู่ในช่วง 06:00 น. - 18:59 น. เท่านั้น");
+            return; // หยุดการทำงานทันทีหากเวลาผิดพลาด
+        }
+
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังเชื่อมต่อ API และประมวลผล...';
 
@@ -305,8 +352,21 @@
             
             const tensor = new ort.Tensor('float32', inputFeatures, [1, 6]);
 
-            // 1. รันโมเดล Classifier (พยากรณ์สภาพฟ้า)
-            const sessionClassifier = await ort.InferenceSession.create('./backend/data/weather_classifier.onnx');
+            // ดึงชื่อโมเดลที่ผู้ใช้เลือกจาก Dropdown
+            const selectedModel = document.getElementById('modelSelect').value;
+
+            // 1. รันโมเดล Classifier (พยากรณ์สภาพฟ้า) แบบไดนามิก
+            const classifierPath = `./backend/data/${selectedModel}_Classifier.onnx`;
+            const sessionClassifier = await ort.InferenceSession.create(classifierPath);
+            
+            // ดึงค่า Metadata creation_time มาแสดงผล
+            const customMeta = sessionClassifier.modelMetadata?.customMetadata;
+            if (customMeta && customMeta.creation_time) {
+                document.getElementById('metadataDisplay').innerHTML = `<i class="fa-regular fa-clock"></i> โมเดลนี้สร้างเมื่อ: ${customMeta.creation_time}`;
+                console.log(`[${selectedModel}] โมเดลนี้สร้างเมื่อ:`, customMeta.creation_time);
+            } else {
+                document.getElementById('metadataDisplay').innerText = `[${selectedModel}] ไม่มีข้อมูลวันที่สร้างในโมเดลนี้`;
+            }
             
             // ดึงชื่อ Output ตัวแรก ('label') และบังคับให้ session.run คืนค่าแค่อันเดียว
             const classifierOutputName = sessionClassifier.outputNames[0]; 
@@ -315,8 +375,9 @@
             // ดึงผลลัพธ์ Label
             const predictedLabel = Number(resultsClassifier[classifierOutputName].data[0]); 
 
-            // 2. รันโมเดล Regressor (พยากรณ์สี)
-            const sessionRegressor = await ort.InferenceSession.create('./backend/data/color_regressor.onnx');
+            // 2. รันโมเดล Regressor (พยากรณ์สี) แบบไดนามิก
+            const regressorPath = `./backend/data/${selectedModel}_Regressor.onnx`;
+            const sessionRegressor = await ort.InferenceSession.create(regressorPath);
             
             // ดึงชื่อ Output ('variable')
             const regressorOutputName = sessionRegressor.outputNames[0];
