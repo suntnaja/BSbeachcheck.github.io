@@ -318,11 +318,22 @@ document.addEventListener("DOMContentLoaded", () => {
     // ------------------------------------------
     document.getElementById('saveModelBtn').addEventListener('click', async function() {
         
+        // กำหนดค่า Owner และ Repo ฝังไว้ได้เลย (เพราะไม่ใช่ความลับ)
         const owner = "suntnaja";
         const repo = "BSbeachcheck.github.io";
-        const token = "";
+        
+        // 🌟 ระบบดึง Token จากความจำเบราว์เซอร์
+        let token = localStorage.getItem('ghToken');
+        
+        // ถ้าไม่มี Token (เพิ่งเข้าเว็บครั้งแรก) ระบบจะเด้งหน้าต่างให้กรอก
+        if (!token) {
+            token = prompt("🔒 เพื่อความปลอดภัย GitHub ไม่อนุญาตให้ฝังรหัสไว้ในเว็บ\n\nกรุณากรอก GitHub Token ของคุณ (ระบบจะจำไว้เฉพาะในเครื่องนี้):");
+            if (!token) return alert("❌ ต้องใช้ Token ในการอัปโหลดไฟล์ครับ");
+            
+            // เซฟเก็บไว้ในเครื่อง
+            localStorage.setItem('ghToken', token);
+        }
 
-        if(!owner || !repo || !token) return alert("กรุณาใส่ข้อมูล GitHub ในไฟล์ app.js ให้ครบ");
         document.getElementById('loading').style.display = 'block';
         
         try {
@@ -331,28 +342,25 @@ document.addEventListener("DOMContentLoaded", () => {
             for (let i = 0; i < totalFiles; i++) {
                 document.getElementById('loadingText').innerText = `กำลังแปลงไฟล์และอัปโหลดรูปภาพที่ ${i+1}/${totalFiles}...`;
                 const uploadItem = globalModel.pendingUploads[i];
-                
                 const base64Jpg = await convertToJPG(uploadItem.fileData);
                 
-                // ตรวจสอบว่าไฟล์มีอยู่แล้วหรือไม่ (เพื่อหาค่า SHA ถ้าต้องการอัปเดตไฟล์เดิม)
                 const url = `https://api.github.com/repos/${owner}/${repo}/contents/${uploadItem.uploadPath}`;
                 let sha = null;
                 try {
                     const getRes = await fetch(url, { headers: { "Authorization": `token ${token}` } });
                     if (getRes.ok) {
                         const fileData = await getRes.json();
-                        sha = fileData.sha; // เก็บค่า SHA ของไฟล์เก่า
+                        sha = fileData.sha; 
                     }
                 } catch (e) {
-                    console.log("File not exists, creating new one.");
+                    console.log("Creating new file.");
                 }
 
-                // เตรียมข้อมูลส่ง
                 const payload = {
                     message: `Upload image ${uploadItem.uploadPath}`,
                     content: base64Jpg
                 };
-                if (sha) payload.sha = sha; // ถ้ามีไฟล์เดิม ให้ใส่ SHA เข้าไปด้วยเพื่อเขียนทับ
+                if (sha) payload.sha = sha; 
 
                 const response = await fetch(url, {
                     method: "PUT",
@@ -361,6 +369,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 });
                 
                 if (!response.ok) {
+                    // 🌟 ถ้าอัปโหลดไม่ผ่าน (เช่น Token หมดอายุ/โดนแบน) ให้ลบความจำเดิมทิ้ง
+                    if(response.status === 401) {
+                        localStorage.removeItem('ghToken');
+                        throw new Error("Token ไม่ถูกต้อง หรือหมดอายุ (กรุณากดอัปโหลดใหม่อีกครั้งเพื่อกรอก Token ใหม่)");
+                    }
                     const errorMsg = await response.text();
                     throw new Error(errorMsg);
                 }
