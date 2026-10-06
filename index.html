@@ -54,7 +54,13 @@
         .color-badge { width: 32px; height: 32px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.2); flex-shrink: 0; }
 
         .image-preview-container { margin-bottom: 20px; position: relative; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); background: #f1f5f9; text-align: center; }
-        .image-preview-container img { width: 100%; height: 220px; object-fit: cover; display: none; }
+        .image-preview-container img { 
+                width: 100%; 
+                height: auto; 
+                max-height: 350px; 
+                object-fit: contain; 
+                display: none; 
+            }
         .no-image-msg { display: none; padding: 60px 20px; color: var(--text-sub); font-size: 0.95rem; }
         .image-badge { position: absolute; bottom: 10px; right: 10px; background: rgba(0, 0, 0, 0.6); color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; backdrop-filter: blur(4px); }
         .similarity-badge { position: absolute; top: 10px; right: 10px; background: var(--accent); color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 2; }
