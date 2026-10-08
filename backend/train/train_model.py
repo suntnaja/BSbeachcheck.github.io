@@ -112,14 +112,11 @@ def train_and_evaluate(df):
             'reg': RandomForestRegressor(n_estimators=100, random_state=42)
         },
         
-        '''
         'HistGradient': {
             'clf': HistGradientBoostingClassifier(random_state=42, max_iter=30, max_depth=3, max_leaf_nodes=10),
             'reg': MultiOutputRegressor(HistGradientBoostingRegressor(random_state=42, max_iter=30, max_depth=3, max_leaf_nodes=10))
         },
-        '''
 
-        
         'XGBoost': {
             'clf': XGBClassifier(use_label_encoder=False, eval_metric='mlogloss', random_state=42),
             'reg': MultiOutputRegressor(XGBRegressor(random_state=42))
@@ -200,7 +197,7 @@ def save_to_onnx(model, filepath, initial_type, timestamp_str):
         onnx_model = convert_sklearn(
             model, 
             initial_types=initial_type, 
-            target_opset={'': 12, 'ai.onnx.ml': 3}
+            target_opset={'': 14, 'ai.onnx.ml': 3}
         )
         
         meta = onnx_model.metadata_props.add()
