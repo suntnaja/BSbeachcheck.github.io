@@ -365,29 +365,37 @@
             const classifierPath = `./backend/data/${selectedModel}_Classifier.onnx`;
             const sessionClassifier = await ort.InferenceSession.create(classifierPath);
             
-            // ดึงค่า Metadata creation_time มาแสดงผล
             const customMeta = sessionClassifier.modelMetadata?.customMetadata;
             if (customMeta && customMeta.creation_time) {
                 document.getElementById('metadataDisplay').innerHTML = `<i class="fa-regular fa-clock"></i> โมเดลนี้สร้างเมื่อ: ${customMeta.creation_time}`;
-                console.log(`[${selectedModel}] โมเดลนี้สร้างเมื่อ:`, customMeta.creation_time);
             } else {
                 document.getElementById('metadataDisplay').innerText = `[${selectedModel}] ไม่มีข้อมูลวันที่สร้างในโมเดลนี้`;
             }
             
-            // ดึงชื่อ Output ตัวแรก ('label') และบังคับให้ session.run คืนค่าแค่อันเดียว
+            // ดึงชื่อ Input และ Output แบบอัตโนมัติจากโมเดล
+            const classifierInputName = sessionClassifier.inputNames[0];
             const classifierOutputName = sessionClassifier.outputNames[0]; 
-            const resultsClassifier = await sessionClassifier.run({ float_input: tensor }, [classifierOutputName]);
             
-            // ดึงผลลัพธ์ Label
+            // สร้าง Feeds โดยใช้ชื่อ Input ที่ถูกต้อง
+            const classifierFeeds = {};
+            classifierFeeds[classifierInputName] = tensor;
+
+            const resultsClassifier = await sessionClassifier.run(classifierFeeds, [classifierOutputName]);
             const predictedLabel = Number(resultsClassifier[classifierOutputName].data[0]); 
 
             // 2. รันโมเดล Regressor (พยากรณ์สี) แบบไดนามิก
             const regressorPath = `./backend/data/${selectedModel}_Regressor.onnx`;
             const sessionRegressor = await ort.InferenceSession.create(regressorPath);
             
-            // ดึงชื่อ Output ('variable')
+            // ดึงชื่อ Input และ Output แบบอัตโนมัติจากโมเดล
+            const regressorInputName = sessionRegressor.inputNames[0];
             const regressorOutputName = sessionRegressor.outputNames[0];
-            const resultsRegressor = await sessionRegressor.run({ float_input: tensor }, [regressorOutputName]);
+            
+            // สร้าง Feeds โดยใช้ชื่อ Input ที่ถูกต้อง
+            const regressorFeeds = {};
+            regressorFeeds[regressorInputName] = tensor;
+
+            const resultsRegressor = await sessionRegressor.run(regressorFeeds, [regressorOutputName]);
             
             // ดึงผลลัพธ์ RGB
             const predictedRgb = [
