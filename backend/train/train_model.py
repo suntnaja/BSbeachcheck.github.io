@@ -102,8 +102,8 @@ def train_and_evaluate(df):
             'reg': RandomForestRegressor(n_estimators=100, random_state=42)
         },
         'HistGradient': {
-            'clf': HistGradientBoostingClassifier(random_state=42, min_samples_leaf=2, max_iter=50),
-            'reg': MultiOutputRegressor(HistGradientBoostingRegressor(random_state=42, min_samples_leaf=2, max_iter=50))
+            'clf': HistGradientBoostingClassifier(random_state=42, early_stopping=False, min_samples_leaf=2, max_iter=50),
+            'reg': MultiOutputRegressor(HistGradientBoostingRegressor(random_state=42, early_stopping=False, min_samples_leaf=2, max_iter=50))
         },
         'XGBoost': {
             'clf': XGBClassifier(use_label_encoder=False, eval_metric='mlogloss', random_state=42),
