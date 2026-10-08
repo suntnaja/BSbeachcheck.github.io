@@ -87,9 +87,9 @@ def train_and_evaluate(df):
         
         for cls in missing_classes:
             # 🌟 3. สร้างข้อมูลสุ่มให้กระจายตัว เพื่อแก้บั๊ก TreeEnsembleClassifier (ป้องกันไม่ให้ต้นไม้ตีบตัน)
-            dummy_X = np.random.normal(X_mean, X_std * 1.5, size=(100, X_train_np.shape[1])).astype(np.float32)
-            dummy_y_colors = np.random.normal(y_c_mean, y_c_std * 1.5, size=(100, y_colors_train_np.shape[1])).astype(np.float32)
-            dummy_y_label = np.full(100, cls, dtype=np.int64)
+            dummy_X = np.random.normal(X_mean, X_std * 0.1, size=(10, X_train_np.shape[1])).astype(np.float32)
+            dummy_y_colors = np.random.normal(y_c_mean, y_c_std * 0.1, size=(10, y_colors_train_np.shape[1])).astype(np.float32)
+            dummy_y_label = np.full(10, cls, dtype=np.int64)
             
             X_train_np = np.vstack([X_train_np, dummy_X])
             y_colors_train_np = np.vstack([y_colors_train_np, dummy_y_colors])
@@ -103,20 +103,8 @@ def train_and_evaluate(df):
         },
         
         'HistGradient': {
-            'clf': HistGradientBoostingClassifier(
-                random_state=42, 
-                early_stopping=False, 
-                max_iter=50, 
-                min_samples_leaf=1, # บังคับให้ใบไม้มีแค่ 1 ข้อมูลก็แตกกิ่งได้
-                max_leaf_nodes=10   # จำกัดจำนวนกิ่งไม่ให้โมเดลโอเวอร์เกินไป
-            ),
-            'reg': MultiOutputRegressor(HistGradientBoostingRegressor(
-                random_state=42, 
-                early_stopping=False, 
-                max_iter=50, 
-                min_samples_leaf=1, 
-                max_leaf_nodes=10
-            ))
+            'clf': HistGradientBoostingClassifier(random_state=42, max_iter=30, max_depth=3, max_leaf_nodes=10),
+            'reg': MultiOutputRegressor(HistGradientBoostingRegressor(random_state=42, max_iter=30, max_depth=3, max_leaf_nodes=10))
         },
         
         'XGBoost': {
