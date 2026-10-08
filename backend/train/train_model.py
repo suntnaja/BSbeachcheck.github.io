@@ -3,7 +3,6 @@ import numpy as np
 import os
 from datetime import datetime
 from sklearn.model_selection import train_test_split
-# 🌟 เพิ่ม classification_report และ confusion_matrix
 from sklearn.metrics import accuracy_score, mean_absolute_error, classification_report, confusion_matrix
 from sklearn.multioutput import MultiOutputRegressor
 
@@ -19,11 +18,11 @@ from skl2onnx.common.shape_calculator import calculate_linear_classifier_output_
 from onnxmltools.convert.xgboost.operator_converters.XGBoost import convert_xgboost
 from onnxmltools.convert.lightgbm.operator_converters.LightGbm import convert_lightgbm
 
+# 🌟 1. แก้บั๊ก XGBoost & LightGBM: ลงทะเบียนใหม่แบบคลีนๆ โดยไม่ต้องยัด Option 'nocl' 
 try:
-    opts = {'nocl': [True, False], 'zipmap': [True, False, 'columns']}
-    update_registered_converter(XGBClassifier, 'XGBoostXGBClassifier', calculate_linear_classifier_output_shapes, convert_xgboost, options=opts)
+    update_registered_converter(XGBClassifier, 'XGBoostXGBClassifier', calculate_linear_classifier_output_shapes, convert_xgboost)
     update_registered_converter(XGBRegressor, 'XGBoostXGBRegressor', calculate_linear_regressor_output_shapes, convert_xgboost)
-    update_registered_converter(LGBMClassifier, 'LightGBMLGBMClassifier', calculate_linear_classifier_output_shapes, convert_lightgbm, options=opts)
+    update_registered_converter(LGBMClassifier, 'LightGBMLGBMClassifier', calculate_linear_classifier_output_shapes, convert_lightgbm)
     update_registered_converter(LGBMRegressor, 'LightGBMLGBMRegressor', calculate_linear_regressor_output_shapes, convert_lightgbm)
 except Exception:
     pass
@@ -61,35 +60,28 @@ def train_and_evaluate(df):
         print(f"\n⚠️ ข้อมูล Train ขาดกลุ่มสภาพอากาศ: {missing_classes}")
         print("-> กำลังสร้างข้อมูลจำลอง (Dummy Data) เติมให้ครบ 4 กลุ่ม (กลุ่มละ 25 แถว) เพื่อป้องกัน ONNX Error...")
         
-        np.random.seed(42) # ล็อคค่าสุ่มให้คงที่
+        np.random.seed(42)
         for cls in missing_classes:
             dummy_X = pd.concat([X_train.iloc[[0]]] * 25, ignore_index=True)
             dummy_y_colors = pd.concat([y_colors_train.iloc[[0]]] * 25, ignore_index=True)
             
-            # 🌟 2. แก้บั๊ก HistGradient: เติม Noise (ความคลาดเคลื่อนจำลอง) เล็กน้อย 
-            # เพื่อหลอกให้ข้อมูล 25 แถวต่างกันนิดหน่อย ต้นไม้จะได้มีการ "แตกกิ่ง" และแปลงเป็น ONNX ได้
-            noise_X = np.random.normal(0, 0.01, dummy_X.shape)
+            # 🌟 2. แก้บั๊ก HistGradient: เพิ่มค่า Noise เป็น 0.5 (ให้ความแตกต่างชัดเจนขึ้น)
+            noise_X = np.random.normal(0, 0.5, dummy_X.shape)
             dummy_X = dummy_X + noise_X
             
-            noise_y = np.random.normal(0, 0.01, dummy_y_colors.shape)
+            noise_y = np.random.normal(0, 0.5, dummy_y_colors.shape)
             dummy_y_colors = dummy_y_colors + noise_y
             
             dummy_y_label = pd.Series([cls] * 25)
             
-            X_train = pd.concat([X_train, dummy_X], ignore_index=True)
-            y_colors_train = pd.concat([y_colors_train, dummy_y_colors], ignore_index=True)
+            X_train = pd.concat([X_train, pd.DataFrame(dummy_X, columns=features)], ignore_index=True)
+            y_colors_train = pd.concat([y_colors_train, pd.DataFrame(dummy_y_colors, columns=y_colors.columns)], ignore_index=True)
             y_label_train = pd.concat([y_label_train, dummy_y_label], ignore_index=True)
 
-    # 🌟 2. แก้ไข CatBoost: บังคับ Data Type ให้บริสุทธิ์ที่สุดก่อน Train
-    # แปลง Pandas Series เป็น 1D Numpy Array ชนิด Integer
-    X_train_np = np.array(X_train, dtype=np.float32)
-    X_test_np = np.array(X_test, dtype=np.float32)
-    
-    y_colors_train_np = np.array(y_colors_train, dtype=np.float32)
-    y_colors_test_np = np.array(y_colors_test, dtype=np.float32)
-    
-    y_label_train_np = np.array(y_label_train, dtype=np.int64).ravel()
-    y_label_test_np = np.array(y_label_test, dtype=np.int64).ravel()
+    # 🌟 3. แก้บั๊ก CatBoost: คงรูป DataFrame ของ Pandas ไว้ (ไม่แปลงเป็น Numpy)
+    # แต่แปลง y_label ให้เป็น int แบบชัดเจน
+    y_label_train = y_label_train.astype(int)
+    y_label_test = y_label_test.astype(int)
     
     models = {
         'RandomForest': {
@@ -124,25 +116,24 @@ def train_and_evaluate(df):
         print("="*50)
         
         try:
-            # 1. เทรนและประเมิน Classification
-            m['clf'].fit(X_train_np, y_label_train_np)
-            y_label_pred = m['clf'].predict(X_test_np)
-            acc = accuracy_score(y_label_test_np, y_label_pred)
+            # ใช้ Pandas DataFrame และ Series โดยตรงในการ Train
+            m['clf'].fit(X_train, y_label_train)
+            y_label_pred = m['clf'].predict(X_test)
+            acc = accuracy_score(y_label_test, y_label_pred)
             
             print(f"🎯 ความแม่นยำสถานะท้องฟ้า (Accuracy): {acc * 100:.2f}%\n")
             
-            # 🌟 แก้ไข: ดึงคลาสแบบรวมทั้งจากความเป็นจริง (y_test) และที่ทายผลได้ (y_pred)
-            unique_labels_all = sorted(set(y_label_test_np) | set(y_label_pred))
+            unique_labels_all = sorted(set(y_label_test) | set(y_label_pred))
             actual_target_names = [target_names_list[i] for i in unique_labels_all]
             
             print("📊 รายละเอียดการแยกคลาส (Classification Report):")
             try:
-                print(classification_report(y_label_test_np, y_label_pred, labels=unique_labels_all, target_names=actual_target_names))
+                print(classification_report(y_label_test, y_label_pred, labels=unique_labels_all, target_names=actual_target_names))
             except Exception:
-                print(classification_report(y_label_test_np, y_label_pred))
+                print(classification_report(y_label_test, y_label_pred))
             
             print("ตารางเมทริกซ์ความสับสน (Confusion Matrix):")
-            cm = confusion_matrix(y_label_test_np, y_label_pred)
+            cm = confusion_matrix(y_label_test, y_label_pred)
             cm_df = pd.DataFrame(
                 cm, 
                 index=[f"Actual {n}" for n in actual_target_names], 
@@ -151,18 +142,15 @@ def train_and_evaluate(df):
             print(cm_df)
             print("-" * 50)
             
-            # 2. เทรนและประเมิน Regression
-            m['reg'].fit(X_train_np, y_colors_train_np)
-            y_colors_pred = m['reg'].predict(X_test_np)
-            mae = mean_absolute_error(y_colors_test_np, y_colors_pred)
+            m['reg'].fit(X_train, y_colors_train)
+            y_colors_pred = m['reg'].predict(X_test)
+            mae = mean_absolute_error(y_colors_test, y_colors_pred)
             
             print(f"🎨 ความคลาดเคลื่อนสีเฉลี่ยโดยรวม (MAE): +/- {mae:.2f} หน่วย")
             
-            # เก็บเฉพาะโมเดลที่ Train ผ่านเข้าสู่ดิกชันนารี
             trained_models[name] = m
             
         except Exception as e:
-            # ดักจับ Error ที่อาจเกิดขึ้นจากโมเดล (เช่น XGBoost ขาดคลาส)
             print(f"⚠️ ไม่สามารถ Train โมเดล {name} ได้: {e}")
             print(f"-> ข้ามการสร้างโมเดล {name}")
             continue
@@ -171,18 +159,16 @@ def train_and_evaluate(df):
 
 def save_to_onnx(model, filepath, initial_type, timestamp_str):
     try:
+        # ใช้ target_opset เบื้องต้น หากไม่ได้ผล onnxmltools จะหาวิธีปรับลดให้เอง
         onnx_model = convert_sklearn(
             model, 
             initial_types=initial_type, 
             target_opset={'': 12, 'ai.onnx.ml': 3}
         )
         
-        # 🌟 1. ฝัง Metadata ลงในไฟล์ ONNX
         meta = onnx_model.metadata_props.add()
         meta.key = "creation_time"
         meta.value = timestamp_str
-        
-        # 🌟 2. เพิ่มคำอธิบายไฟล์ (Doc String) เผื่อเปิดดูด้วยโปรแกรมอื่น
         onnx_model.doc_string = f"Model trained and generated on: {timestamp_str}"
         
         with open(filepath, "wb") as f:
@@ -204,7 +190,6 @@ if __name__ == "__main__":
         else:
             all_trained_models = train_and_evaluate(df_dataset)
             
-            # สร้างตัวแปรเวลาเพื่อฝังลงในไฟล์ ONNX
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             initial_type = [('float_input', FloatTensorType([None, 6]))]
             
