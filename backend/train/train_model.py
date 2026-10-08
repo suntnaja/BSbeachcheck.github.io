@@ -20,9 +20,10 @@ from onnxmltools.convert.xgboost.operator_converters.XGBoost import convert_xgbo
 from onnxmltools.convert.lightgbm.operator_converters.LightGbm import convert_lightgbm
 
 try:
-    update_registered_converter(XGBClassifier, 'XGBoostXGBClassifier', calculate_linear_classifier_output_shapes, convert_xgboost)
+    opts = {'nocl': [True, False], 'zipmap': [True, False, 'columns']}
+    update_registered_converter(XGBClassifier, 'XGBoostXGBClassifier', calculate_linear_classifier_output_shapes, convert_xgboost, options=opts)
     update_registered_converter(XGBRegressor, 'XGBoostXGBRegressor', calculate_linear_regressor_output_shapes, convert_xgboost)
-    update_registered_converter(LGBMClassifier, 'LightGBMLGBMClassifier', calculate_linear_classifier_output_shapes, convert_lightgbm)
+    update_registered_converter(LGBMClassifier, 'LightGBMLGBMClassifier', calculate_linear_classifier_output_shapes, convert_lightgbm, options=opts)
     update_registered_converter(LGBMRegressor, 'LightGBMLGBMRegressor', calculate_linear_regressor_output_shapes, convert_lightgbm)
 except Exception:
     pass
@@ -59,10 +60,20 @@ def train_and_evaluate(df):
     if missing_classes:
         print(f"\n⚠️ ข้อมูล Train ขาดกลุ่มสภาพอากาศ: {missing_classes}")
         print("-> กำลังสร้างข้อมูลจำลอง (Dummy Data) เติมให้ครบ 4 กลุ่ม (กลุ่มละ 25 แถว) เพื่อป้องกัน ONNX Error...")
+        
+        np.random.seed(42) # ล็อคค่าสุ่มให้คงที่
         for cls in missing_classes:
-            # ก๊อปปี้ข้อมูลแถวแรกมา 25 แถวติดกัน
             dummy_X = pd.concat([X_train.iloc[[0]]] * 25, ignore_index=True)
             dummy_y_colors = pd.concat([y_colors_train.iloc[[0]]] * 25, ignore_index=True)
+            
+            # 🌟 2. แก้บั๊ก HistGradient: เติม Noise (ความคลาดเคลื่อนจำลอง) เล็กน้อย 
+            # เพื่อหลอกให้ข้อมูล 25 แถวต่างกันนิดหน่อย ต้นไม้จะได้มีการ "แตกกิ่ง" และแปลงเป็น ONNX ได้
+            noise_X = np.random.normal(0, 0.01, dummy_X.shape)
+            dummy_X = dummy_X + noise_X
+            
+            noise_y = np.random.normal(0, 0.01, dummy_y_colors.shape)
+            dummy_y_colors = dummy_y_colors + noise_y
+            
             dummy_y_label = pd.Series([cls] * 25)
             
             X_train = pd.concat([X_train, dummy_X], ignore_index=True)
