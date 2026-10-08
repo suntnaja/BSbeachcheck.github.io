@@ -23,7 +23,7 @@ jobs:
       - name: 📦 Install all dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pandas opencv-python-headless torch torchvision transformers Pillow numpy scikit-learn joblib xgboost lightgbm catboost skl2onnx onnx onnxmltools
+          pip install pandas opencv-python-headless torch torchvision transformers Pillow numpy scikit-learn joblib xgboost lightgbm catboost skl2onnx onnx onnxmltools onnxconverter-common
 
       - name: ⚙️ Step 1 - Run Data Pipeline
         run: |
