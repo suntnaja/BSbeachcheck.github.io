@@ -110,7 +110,7 @@ def train_and_evaluate(df):
             # 1. เทรนและประเมิน Classification
             m['clf'].fit(X_train, y_label_train_clean)
             y_label_pred = m['clf'].predict(X_test)
-            acc = accuracy_score(y_label_test, y_label_pred)
+            acc = accuracy_score(y_label_test_clean, y_label_pred)
             
             print(f"🎯 ความแม่นยำสถานะท้องฟ้า (Accuracy): {acc * 100:.2f}%\n")
             
@@ -189,7 +189,7 @@ if __name__ == "__main__":
             print(f"⚠️ ข้อมูลมีน้อยเกินไป (น้อยกว่า 10 รูป) แนะนำให้เก็บเพิ่มก่อน")
         else:
             all_trained_models = train_and_evaluate(df_dataset)
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+            timestamp_str = datetime.now().strftime("%Y%m%d_%H%M")
             initial_type = [('float_input', FloatTensorType([None, 6]))]
             
             print("\n💾 กำลังแปลงและบันทึกไฟล์โมเดลเป็น .onnx ...")
