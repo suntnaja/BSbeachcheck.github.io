@@ -112,10 +112,13 @@ def train_and_evaluate(df):
             'reg': RandomForestRegressor(n_estimators=100, random_state=42)
         },
         
+        '''
         'HistGradient': {
             'clf': HistGradientBoostingClassifier(random_state=42, max_iter=30, max_depth=3, max_leaf_nodes=10),
             'reg': MultiOutputRegressor(HistGradientBoostingRegressor(random_state=42, max_iter=30, max_depth=3, max_leaf_nodes=10))
         },
+        '''
+
         
         'XGBoost': {
             'clf': XGBClassifier(use_label_encoder=False, eval_metric='mlogloss', random_state=42),
@@ -129,7 +132,7 @@ def train_and_evaluate(df):
         
         'CatBoost': {
             'clf': CatBoostClassifier(verbose=0, random_state=42),
-            'reg': MultiOutputRegressor(CatBoostRegressor(verbose=0, random_state=42))
+            'reg': CatBoostRegressor(iterations=100, loss_function='MultiRMSE', verbose=0, random_state=42)
         }
         
     }
