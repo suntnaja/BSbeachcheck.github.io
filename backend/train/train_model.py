@@ -18,32 +18,23 @@ from skl2onnx.common.shape_calculator import calculate_linear_classifier_output_
 from onnxmltools.convert.xgboost.operator_converters.XGBoost import convert_xgboost
 from onnxmltools.convert.lightgbm.operator_converters.LightGbm import convert_lightgbm
 
-# 🌟 1. แยกบล็อกการลงทะเบียนออกจากกัน เพื่อป้องกันการข้ามเมื่อเกิด Error
-classifiers = [
-    (XGBClassifier, 'XGBoostXGBClassifier', convert_xgboost),
-    (LGBMClassifier, 'LightGBMLGBMClassifier', convert_lightgbm)
-]
-for cls_type, name, converter in classifiers:
-    try:
-        update_registered_converter(
-            cls_type, name, calculate_linear_classifier_output_shapes, converter,
-            options={'nocl': [True, False], 'zipmap': [True, False, 'columns']}
-        )
-    except Exception:
-        pass
-
-regressors = [
-    (XGBRegressor, 'XGBoostXGBRegressor', convert_xgboost),
-    (LGBMRegressor, 'LightGBMLGBMRegressor', convert_lightgbm)
-]
-for reg_type, name, converter in regressors:
-    try:
-        update_registered_converter(
-            reg_type, name, calculate_linear_regressor_output_shapes, converter
-        )
-    except Exception:
-        pass
-
+# 🌟 1. แก้บั๊ก Options ['nocl'] โดยการบังคับลงทะเบียนทับ (overwrite=True)
+try:
+    opts = {'nocl': [True, False], 'zipmap': [True, False, 'columns']}
+    update_registered_converter(
+        XGBClassifier, 'XGBoostXGBClassifier', calculate_linear_classifier_output_shapes, convert_xgboost, options=opts, overwrite=True
+    )
+    update_registered_converter(
+        XGBRegressor, 'XGBoostXGBRegressor', calculate_linear_regressor_output_shapes, convert_xgboost, overwrite=True
+    )
+    update_registered_converter(
+        LGBMClassifier, 'LightGBMLGBMClassifier', calculate_linear_classifier_output_shapes, convert_lightgbm, options=opts, overwrite=True
+    )
+    update_registered_converter(
+        LGBMRegressor, 'LightGBMLGBMRegressor', calculate_linear_regressor_output_shapes, convert_lightgbm, overwrite=True
+    )
+except Exception as e:
+    print("Warning in ONNX registration:", e)
 
 def load_and_prepare_data(csv_file_path):
     print(f"กำลังอ่านข้อมูลจากไฟล์: {csv_file_path}...")
@@ -71,49 +62,48 @@ def train_and_evaluate(df):
         X, y_label, y_colors, test_size=0.2, shuffle=False
     )
 
-    # 🌟 2. แปลงทุกอย่างเป็น Numpy Array 100% ตั้งแต่ต้น (แก้บั๊ก CatBoost และ XGBoost f%d)
-    X_train_np = X_train.to_numpy(dtype=np.float32)
-    X_test_np = X_test.to_numpy(dtype=np.float32)
+    # 🌟 2. บังคับแปลงเป็น Numpy Array 100% เพื่อลบชื่อคอลัมน์แก้บั๊ก 'env_solarradiation' ของ XGBoost
+    X_train_np = np.ascontiguousarray(X_train.to_numpy(dtype=np.float32))
+    X_test_np = np.ascontiguousarray(X_test.to_numpy(dtype=np.float32))
     
-    y_colors_train_np = y_colors_train.to_numpy(dtype=np.float32)
-    y_colors_test_np = y_colors_test.to_numpy(dtype=np.float32)
+    y_colors_train_np = np.ascontiguousarray(y_colors_train.to_numpy(dtype=np.float32))
+    y_colors_test_np = np.ascontiguousarray(y_colors_test.to_numpy(dtype=np.float32))
     
-    y_label_train_np = y_label_train.to_numpy(dtype=np.int64).ravel()
-    y_label_test_np = y_label_test.to_numpy(dtype=np.int64).ravel()
+    y_label_train_np = np.ascontiguousarray(y_label_train.to_numpy(dtype=np.int64).ravel())
+    y_label_test_np = np.ascontiguousarray(y_label_test.to_numpy(dtype=np.int64).ravel())
 
     all_classes = {0, 1, 2, 3}
     missing_classes = all_classes - set(y_label_train_np)
 
     if missing_classes:
         print(f"\n⚠️ ข้อมูล Train ขาดกลุ่มสภาพอากาศ: {missing_classes}")
-        print("-> กำลังสร้างข้อมูลจำลอง (Dummy Data) 100 แถวต่อกลุ่ม เพื่อป้องกัน ONNX Error...")
+        print("-> กำลังสร้างข้อมูลจำลอง (Dummy Data) 100 แถวต่อกลุ่ม...")
         
         np.random.seed(42)
-        # หาค่าเฉลี่ยและส่วนเบี่ยงเบนมาตรฐานของข้อมูลจริง
         X_mean = X_train_np.mean(axis=0)
         X_std = X_train_np.std(axis=0) + 1e-5
         y_c_mean = y_colors_train_np.mean(axis=0)
         y_c_std = y_colors_train_np.std(axis=0) + 1e-5
         
         for cls in missing_classes:
-            # 🌟 3. แก้บั๊ก HistGradient: สร้างข้อมูลสุ่ม 100 แถวที่มีความแปรปรวน บังคับให้ต้นไม้แตกกิ่ง
-            dummy_X = np.random.normal(X_mean, X_std * 2.0, size=(100, X_train_np.shape[1])).astype(np.float32)
-            dummy_y_colors = np.random.normal(y_c_mean, y_c_std * 2.0, size=(100, y_colors_train_np.shape[1])).astype(np.float32)
+            # 🌟 3. สร้างข้อมูลสุ่มให้กระจายตัว เพื่อแก้บั๊ก TreeEnsembleClassifier (ป้องกันไม่ให้ต้นไม้ตีบตัน)
+            dummy_X = np.random.normal(X_mean, X_std * 1.5, size=(100, X_train_np.shape[1])).astype(np.float32)
+            dummy_y_colors = np.random.normal(y_c_mean, y_c_std * 1.5, size=(100, y_colors_train_np.shape[1])).astype(np.float32)
             dummy_y_label = np.full(100, cls, dtype=np.int64)
             
-            # นำไปต่อท้าย
             X_train_np = np.vstack([X_train_np, dummy_X])
             y_colors_train_np = np.vstack([y_colors_train_np, dummy_y_colors])
             y_label_train_np = np.concatenate([y_label_train_np, dummy_y_label])
-    
+
+    # 🌟 4. ปรับพารามิเตอร์ HistGradient ให้ min_samples_leaf=2 แก้บั๊กสร้างต้นไม้ไม่มีกิ่ง
     models = {
         'RandomForest': {
             'clf': RandomForestClassifier(n_estimators=100, random_state=42),
             'reg': RandomForestRegressor(n_estimators=100, random_state=42)
         },
         'HistGradient': {
-            'clf': HistGradientBoostingClassifier(random_state=42),
-            'reg': MultiOutputRegressor(HistGradientBoostingRegressor(random_state=42))
+            'clf': HistGradientBoostingClassifier(random_state=42, min_samples_leaf=2, max_iter=50),
+            'reg': MultiOutputRegressor(HistGradientBoostingRegressor(random_state=42, min_samples_leaf=2, max_iter=50))
         },
         'XGBoost': {
             'clf': XGBClassifier(use_label_encoder=False, eval_metric='mlogloss', random_state=42),
@@ -140,7 +130,9 @@ def train_and_evaluate(df):
         
         try:
             m['clf'].fit(X_train_np, y_label_train_np)
-            y_label_pred = m['clf'].predict(X_test_np)
+            
+            # 🌟 5. แก้บั๊ก CatBoost (unhashable type) ด้วยการบังคับ .ravel() ให้ผลทายเป็น 1D ล้วน
+            y_label_pred = m['clf'].predict(X_test_np).ravel()
             acc = accuracy_score(y_label_test_np, y_label_pred)
             
             print(f"🎯 ความแม่นยำสถานะท้องฟ้า (Accuracy): {acc * 100:.2f}%\n")
