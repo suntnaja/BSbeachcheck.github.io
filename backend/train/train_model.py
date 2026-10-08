@@ -25,7 +25,7 @@ try:
     update_registered_converter(LGBMClassifier, 'LightGBMLGBMClassifier', calculate_linear_classifier_output_shapes, convert_lightgbm)
     update_registered_converter(LGBMRegressor, 'LightGBMLGBMRegressor', calculate_linear_regressor_output_shapes, convert_lightgbm)
 except Exception:
-    pass 
+    pass
 
 def load_and_prepare_data(csv_file_path):
     print(f"กำลังอ่านข้อมูลจากไฟล์: {csv_file_path}...")
@@ -71,8 +71,14 @@ def train_and_evaluate(df):
 
     # 🌟 2. แก้ไข CatBoost: บังคับ Data Type ให้บริสุทธิ์ที่สุดก่อน Train
     # แปลง Pandas Series เป็น 1D Numpy Array ชนิด Integer
-    y_label_train_clean = y_label_train.to_numpy().astype(int).ravel()
-    y_label_test_clean = y_label_test.to_numpy().astype(int).ravel()
+    X_train_np = np.array(X_train, dtype=np.float32)
+    X_test_np = np.array(X_test, dtype=np.float32)
+    
+    y_colors_train_np = np.array(y_colors_train, dtype=np.float32)
+    y_colors_test_np = np.array(y_colors_test, dtype=np.float32)
+    
+    y_label_train_np = np.array(y_label_train, dtype=np.int64).ravel()
+    y_label_test_np = np.array(y_label_test, dtype=np.int64).ravel()
     
     models = {
         'RandomForest': {
@@ -108,27 +114,24 @@ def train_and_evaluate(df):
         
         try:
             # 1. เทรนและประเมิน Classification
-            m['clf'].fit(X_train, y_label_train_clean)
-            y_label_pred = m['clf'].predict(X_test)
-            acc = accuracy_score(y_label_test_clean, y_label_pred)
+            m['clf'].fit(X_train_np, y_label_train_np)
+            y_label_pred = m['clf'].predict(X_test_np)
+            acc = accuracy_score(y_label_test_np, y_label_pred)
             
             print(f"🎯 ความแม่นยำสถานะท้องฟ้า (Accuracy): {acc * 100:.2f}%\n")
             
             # 🌟 แก้ไข: ดึงคลาสแบบรวมทั้งจากความเป็นจริง (y_test) และที่ทายผลได้ (y_pred)
-            unique_labels_all = sorted(set(y_label_test_clean) | set(y_label_pred))
+            unique_labels_all = sorted(set(y_label_test_np) | set(y_label_pred))
             actual_target_names = [target_names_list[i] for i in unique_labels_all]
             
             print("📊 รายละเอียดการแยกคลาส (Classification Report):")
             try:
-                # ใช้ parameter labels ควบคู่กับ target_names เพื่อป้องกัน error จากจำนวนที่ไม่เท่ากัน
-                print(classification_report(y_label_test_clean, y_label_pred, labels=unique_labels_all, target_names=actual_target_names))
+                print(classification_report(y_label_test_np, y_label_pred, labels=unique_labels_all, target_names=actual_target_names))
             except Exception:
-                # เผื่อฉุกเฉิน พิมพ์แบบไม่ใส่ชื่อแทน
-                print(classification_report(y_label_test_clean, y_label_pred))
+                print(classification_report(y_label_test_np, y_label_pred))
             
             print("ตารางเมทริกซ์ความสับสน (Confusion Matrix):")
-            cm = confusion_matrix(y_label_test_clean, y_label_pred)
-            
+            cm = confusion_matrix(y_label_test_np, y_label_pred)
             cm_df = pd.DataFrame(
                 cm, 
                 index=[f"Actual {n}" for n in actual_target_names], 
@@ -138,9 +141,9 @@ def train_and_evaluate(df):
             print("-" * 50)
             
             # 2. เทรนและประเมิน Regression
-            m['reg'].fit(X_train, y_colors_train)
-            y_colors_pred = m['reg'].predict(X_test)
-            mae = mean_absolute_error(y_colors_test, y_colors_pred)
+            m['reg'].fit(X_train_np, y_colors_train_np)
+            y_colors_pred = m['reg'].predict(X_test_np)
+            mae = mean_absolute_error(y_colors_test_np, y_colors_pred)
             
             print(f"🎨 ความคลาดเคลื่อนสีเฉลี่ยโดยรวม (MAE): +/- {mae:.2f} หน่วย")
             
@@ -189,7 +192,9 @@ if __name__ == "__main__":
             print(f"⚠️ ข้อมูลมีน้อยเกินไป (น้อยกว่า 10 รูป) แนะนำให้เก็บเพิ่มก่อน")
         else:
             all_trained_models = train_and_evaluate(df_dataset)
-            timestamp_str = datetime.now().strftime("%Y%m%d_%H%M")
+            
+            # สร้างตัวแปรเวลาเพื่อฝังลงในไฟล์ ONNX
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             initial_type = [('float_input', FloatTensorType([None, 6]))]
             
             print("\n💾 กำลังแปลงและบันทึกไฟล์โมเดลเป็น .onnx ...")
@@ -202,10 +207,10 @@ if __name__ == "__main__":
                 clf_path = os.path.join(BASE_DIR, '..', 'data', clf_filename)
                 reg_path = os.path.join(BASE_DIR, '..', 'data', reg_filename)
                 
-                if save_to_onnx(models['clf'], clf_path, initial_type):
+                if save_to_onnx(models['clf'], clf_path, initial_type, timestamp):
                     print(f"   ✅ บันทึก {clf_filename} สำเร็จ")
                 
-                if save_to_onnx(models['reg'], reg_path, initial_type):
+                if save_to_onnx(models['reg'], reg_path, initial_type, timestamp):
                     print(f"   ✅ บันทึก {reg_filename} สำเร็จ")
             
             print("\n🎉 กระบวนการสร้างไฟล์โมเดลเสร็จสมบูรณ์!")
