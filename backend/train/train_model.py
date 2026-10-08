@@ -101,22 +101,39 @@ def train_and_evaluate(df):
             'clf': RandomForestClassifier(n_estimators=100, random_state=42),
             'reg': RandomForestRegressor(n_estimators=100, random_state=42)
         },
+        
         'HistGradient': {
-            'clf': HistGradientBoostingClassifier(random_state=42, early_stopping=False, min_samples_leaf=2, max_iter=50),
-            'reg': MultiOutputRegressor(HistGradientBoostingRegressor(random_state=42, early_stopping=False, min_samples_leaf=2, max_iter=50))
+            'clf': HistGradientBoostingClassifier(
+                random_state=42, 
+                early_stopping=False, 
+                max_iter=50, 
+                min_samples_leaf=1, # บังคับให้ใบไม้มีแค่ 1 ข้อมูลก็แตกกิ่งได้
+                max_leaf_nodes=10   # จำกัดจำนวนกิ่งไม่ให้โมเดลโอเวอร์เกินไป
+            ),
+            'reg': MultiOutputRegressor(HistGradientBoostingRegressor(
+                random_state=42, 
+                early_stopping=False, 
+                max_iter=50, 
+                min_samples_leaf=1, 
+                max_leaf_nodes=10
+            ))
         },
+        
         'XGBoost': {
             'clf': XGBClassifier(use_label_encoder=False, eval_metric='mlogloss', random_state=42),
             'reg': MultiOutputRegressor(XGBRegressor(random_state=42))
         },
+        
         'LightGBM': {
             'clf': LGBMClassifier(random_state=42, verbose=-1),
             'reg': MultiOutputRegressor(LGBMRegressor(random_state=42, verbose=-1))
         },
+        
         'CatBoost': {
             'clf': CatBoostClassifier(verbose=0, random_state=42),
             'reg': MultiOutputRegressor(CatBoostRegressor(verbose=0, random_state=42))
         }
+        
     }
 
     trained_models = {}
