@@ -1,0 +1,42 @@
+name: 🧪 Manual Test Pipeline
+
+# 🌟 คำสั่งนี้จะสร้างปุ่ม "Run workflow" ให้คุณกดรันเองได้จากหน้าเว็บ GitHub
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  manual-test-run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: 📦 Install all dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas opencv-python-headless torch torchvision transformers Pillow numpy scikit-learn joblib xgboost lightgbm catboost skl2onnx onnx onnxmltools
+
+      - name: ⚙️ Step 1 - Run Data Pipeline
+        run: |
+          python backend/train/data_pipeline.py
+
+      - name: 🧠 Step 2 - Run Training Script
+        run: |
+          python backend/train/train_model.py
+
+      - name: 💾 Step 3 - Commit and Push all results
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          
+          git add .
+          git diff --quiet && git diff --staged --quiet || (git commit -m "🧪 Manual Test Run: Update Database & Models" && git push)
