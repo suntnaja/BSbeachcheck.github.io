@@ -18,14 +18,32 @@ from skl2onnx.common.shape_calculator import calculate_linear_classifier_output_
 from onnxmltools.convert.xgboost.operator_converters.XGBoost import convert_xgboost
 from onnxmltools.convert.lightgbm.operator_converters.LightGbm import convert_lightgbm
 
-# 🌟 1. แก้บั๊ก XGBoost & LightGBM: ลงทะเบียนใหม่แบบคลีนๆ โดยไม่ต้องยัด Option 'nocl' 
-try:
-    update_registered_converter(XGBClassifier, 'XGBoostXGBClassifier', calculate_linear_classifier_output_shapes, convert_xgboost)
-    update_registered_converter(XGBRegressor, 'XGBoostXGBRegressor', calculate_linear_regressor_output_shapes, convert_xgboost)
-    update_registered_converter(LGBMClassifier, 'LightGBMLGBMClassifier', calculate_linear_classifier_output_shapes, convert_lightgbm)
-    update_registered_converter(LGBMRegressor, 'LightGBMLGBMRegressor', calculate_linear_regressor_output_shapes, convert_lightgbm)
-except Exception:
-    pass
+# 🌟 1. แยกบล็อกการลงทะเบียนออกจากกัน เพื่อป้องกันการข้ามเมื่อเกิด Error
+classifiers = [
+    (XGBClassifier, 'XGBoostXGBClassifier', convert_xgboost),
+    (LGBMClassifier, 'LightGBMLGBMClassifier', convert_lightgbm)
+]
+for cls_type, name, converter in classifiers:
+    try:
+        update_registered_converter(
+            cls_type, name, calculate_linear_classifier_output_shapes, converter,
+            options={'nocl': [True, False], 'zipmap': [True, False, 'columns']}
+        )
+    except Exception:
+        pass
+
+regressors = [
+    (XGBRegressor, 'XGBoostXGBRegressor', convert_xgboost),
+    (LGBMRegressor, 'LightGBMLGBMRegressor', convert_lightgbm)
+]
+for reg_type, name, converter in regressors:
+    try:
+        update_registered_converter(
+            reg_type, name, calculate_linear_regressor_output_shapes, converter
+        )
+    except Exception:
+        pass
+
 
 def load_and_prepare_data(csv_file_path):
     print(f"กำลังอ่านข้อมูลจากไฟล์: {csv_file_path}...")
@@ -53,35 +71,40 @@ def train_and_evaluate(df):
         X, y_label, y_colors, test_size=0.2, shuffle=False
     )
 
+    # 🌟 2. แปลงทุกอย่างเป็น Numpy Array 100% ตั้งแต่ต้น (แก้บั๊ก CatBoost และ XGBoost f%d)
+    X_train_np = X_train.to_numpy(dtype=np.float32)
+    X_test_np = X_test.to_numpy(dtype=np.float32)
+    
+    y_colors_train_np = y_colors_train.to_numpy(dtype=np.float32)
+    y_colors_test_np = y_colors_test.to_numpy(dtype=np.float32)
+    
+    y_label_train_np = y_label_train.to_numpy(dtype=np.int64).ravel()
+    y_label_test_np = y_label_test.to_numpy(dtype=np.int64).ravel()
+
     all_classes = {0, 1, 2, 3}
-    missing_classes = all_classes - set(y_label_train.unique())
+    missing_classes = all_classes - set(y_label_train_np)
 
     if missing_classes:
         print(f"\n⚠️ ข้อมูล Train ขาดกลุ่มสภาพอากาศ: {missing_classes}")
-        print("-> กำลังสร้างข้อมูลจำลอง (Dummy Data) เติมให้ครบ 4 กลุ่ม (กลุ่มละ 25 แถว) เพื่อป้องกัน ONNX Error...")
+        print("-> กำลังสร้างข้อมูลจำลอง (Dummy Data) 100 แถวต่อกลุ่ม เพื่อป้องกัน ONNX Error...")
         
         np.random.seed(42)
+        # หาค่าเฉลี่ยและส่วนเบี่ยงเบนมาตรฐานของข้อมูลจริง
+        X_mean = X_train_np.mean(axis=0)
+        X_std = X_train_np.std(axis=0) + 1e-5
+        y_c_mean = y_colors_train_np.mean(axis=0)
+        y_c_std = y_colors_train_np.std(axis=0) + 1e-5
+        
         for cls in missing_classes:
-            dummy_X = pd.concat([X_train.iloc[[0]]] * 25, ignore_index=True)
-            dummy_y_colors = pd.concat([y_colors_train.iloc[[0]]] * 25, ignore_index=True)
+            # 🌟 3. แก้บั๊ก HistGradient: สร้างข้อมูลสุ่ม 100 แถวที่มีความแปรปรวน บังคับให้ต้นไม้แตกกิ่ง
+            dummy_X = np.random.normal(X_mean, X_std * 2.0, size=(100, X_train_np.shape[1])).astype(np.float32)
+            dummy_y_colors = np.random.normal(y_c_mean, y_c_std * 2.0, size=(100, y_colors_train_np.shape[1])).astype(np.float32)
+            dummy_y_label = np.full(100, cls, dtype=np.int64)
             
-            # 🌟 2. แก้บั๊ก HistGradient: เพิ่มค่า Noise เป็น 0.5 (ให้ความแตกต่างชัดเจนขึ้น)
-            noise_X = np.random.normal(0, 0.5, dummy_X.shape)
-            dummy_X = dummy_X + noise_X
-            
-            noise_y = np.random.normal(0, 0.5, dummy_y_colors.shape)
-            dummy_y_colors = dummy_y_colors + noise_y
-            
-            dummy_y_label = pd.Series([cls] * 25)
-            
-            X_train = pd.concat([X_train, pd.DataFrame(dummy_X, columns=features)], ignore_index=True)
-            y_colors_train = pd.concat([y_colors_train, pd.DataFrame(dummy_y_colors, columns=y_colors.columns)], ignore_index=True)
-            y_label_train = pd.concat([y_label_train, dummy_y_label], ignore_index=True)
-
-    # 🌟 3. แก้บั๊ก CatBoost: คงรูป DataFrame ของ Pandas ไว้ (ไม่แปลงเป็น Numpy)
-    # แต่แปลง y_label ให้เป็น int แบบชัดเจน
-    y_label_train = y_label_train.astype(int)
-    y_label_test = y_label_test.astype(int)
+            # นำไปต่อท้าย
+            X_train_np = np.vstack([X_train_np, dummy_X])
+            y_colors_train_np = np.vstack([y_colors_train_np, dummy_y_colors])
+            y_label_train_np = np.concatenate([y_label_train_np, dummy_y_label])
     
     models = {
         'RandomForest': {
@@ -116,24 +139,23 @@ def train_and_evaluate(df):
         print("="*50)
         
         try:
-            # ใช้ Pandas DataFrame และ Series โดยตรงในการ Train
-            m['clf'].fit(X_train, y_label_train)
-            y_label_pred = m['clf'].predict(X_test)
-            acc = accuracy_score(y_label_test, y_label_pred)
+            m['clf'].fit(X_train_np, y_label_train_np)
+            y_label_pred = m['clf'].predict(X_test_np)
+            acc = accuracy_score(y_label_test_np, y_label_pred)
             
             print(f"🎯 ความแม่นยำสถานะท้องฟ้า (Accuracy): {acc * 100:.2f}%\n")
             
-            unique_labels_all = sorted(set(y_label_test) | set(y_label_pred))
+            unique_labels_all = sorted(set(y_label_test_np) | set(y_label_pred))
             actual_target_names = [target_names_list[i] for i in unique_labels_all]
             
             print("📊 รายละเอียดการแยกคลาส (Classification Report):")
             try:
-                print(classification_report(y_label_test, y_label_pred, labels=unique_labels_all, target_names=actual_target_names))
+                print(classification_report(y_label_test_np, y_label_pred, labels=unique_labels_all, target_names=actual_target_names))
             except Exception:
-                print(classification_report(y_label_test, y_label_pred))
+                print(classification_report(y_label_test_np, y_label_pred))
             
             print("ตารางเมทริกซ์ความสับสน (Confusion Matrix):")
-            cm = confusion_matrix(y_label_test, y_label_pred)
+            cm = confusion_matrix(y_label_test_np, y_label_pred)
             cm_df = pd.DataFrame(
                 cm, 
                 index=[f"Actual {n}" for n in actual_target_names], 
@@ -142,9 +164,9 @@ def train_and_evaluate(df):
             print(cm_df)
             print("-" * 50)
             
-            m['reg'].fit(X_train, y_colors_train)
-            y_colors_pred = m['reg'].predict(X_test)
-            mae = mean_absolute_error(y_colors_test, y_colors_pred)
+            m['reg'].fit(X_train_np, y_colors_train_np)
+            y_colors_pred = m['reg'].predict(X_test_np)
+            mae = mean_absolute_error(y_colors_test_np, y_colors_pred)
             
             print(f"🎨 ความคลาดเคลื่อนสีเฉลี่ยโดยรวม (MAE): +/- {mae:.2f} หน่วย")
             
@@ -159,7 +181,6 @@ def train_and_evaluate(df):
 
 def save_to_onnx(model, filepath, initial_type, timestamp_str):
     try:
-        # ใช้ target_opset เบื้องต้น หากไม่ได้ผล onnxmltools จะหาวิธีปรับลดให้เอง
         onnx_model = convert_sklearn(
             model, 
             initial_types=initial_type, 
