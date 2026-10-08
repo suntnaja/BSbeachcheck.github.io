@@ -52,6 +52,27 @@ def train_and_evaluate(df):
     X_train, X_test, y_label_train, y_label_test, y_colors_train, y_colors_test = train_test_split(
         X, y_label, y_colors, test_size=0.2, shuffle=False
     )
+
+    all_classes = {0, 1, 2, 3}
+    missing_classes = all_classes - set(y_label_train.unique())
+
+    if missing_classes:
+        print(f"\n⚠️ ข้อมูล Train ขาดกลุ่มสภาพอากาศ: {missing_classes}")
+        print("-> กำลังสร้างข้อมูลจำลอง (Dummy Data) เติมให้ครบ 4 กลุ่ม (กลุ่มละ 25 แถว) เพื่อป้องกัน ONNX Error...")
+        for cls in missing_classes:
+            # ก๊อปปี้ข้อมูลแถวแรกมา 25 แถวติดกัน
+            dummy_X = pd.concat([X_train.iloc[[0]]] * 25, ignore_index=True)
+            dummy_y_colors = pd.concat([y_colors_train.iloc[[0]]] * 25, ignore_index=True)
+            dummy_y_label = pd.Series([cls] * 25)
+            
+            X_train = pd.concat([X_train, dummy_X], ignore_index=True)
+            y_colors_train = pd.concat([y_colors_train, dummy_y_colors], ignore_index=True)
+            y_label_train = pd.concat([y_label_train, dummy_y_label], ignore_index=True)
+
+    # 🌟 2. แก้ไข CatBoost: บังคับ Data Type ให้บริสุทธิ์ที่สุดก่อน Train
+    # แปลง Pandas Series เป็น 1D Numpy Array ชนิด Integer
+    y_label_train_clean = y_label_train.to_numpy().astype(int).ravel()
+    y_label_test_clean = y_label_test.to_numpy().astype(int).ravel()
     
     models = {
         'RandomForest': {
@@ -87,26 +108,26 @@ def train_and_evaluate(df):
         
         try:
             # 1. เทรนและประเมิน Classification
-            m['clf'].fit(X_train, y_label_train)
+            m['clf'].fit(X_train, y_label_train_clean)
             y_label_pred = m['clf'].predict(X_test)
             acc = accuracy_score(y_label_test, y_label_pred)
             
             print(f"🎯 ความแม่นยำสถานะท้องฟ้า (Accuracy): {acc * 100:.2f}%\n")
             
             # 🌟 แก้ไข: ดึงคลาสแบบรวมทั้งจากความเป็นจริง (y_test) และที่ทายผลได้ (y_pred)
-            unique_labels_all = sorted(set(y_label_test) | set(y_label_pred))
+            unique_labels_all = sorted(set(y_label_test_clean) | set(y_label_pred))
             actual_target_names = [target_names_list[i] for i in unique_labels_all]
             
             print("📊 รายละเอียดการแยกคลาส (Classification Report):")
             try:
                 # ใช้ parameter labels ควบคู่กับ target_names เพื่อป้องกัน error จากจำนวนที่ไม่เท่ากัน
-                print(classification_report(y_label_test, y_label_pred, labels=unique_labels_all, target_names=actual_target_names))
+                print(classification_report(y_label_test_clean, y_label_pred, labels=unique_labels_all, target_names=actual_target_names))
             except Exception:
                 # เผื่อฉุกเฉิน พิมพ์แบบไม่ใส่ชื่อแทน
-                print(classification_report(y_label_test, y_label_pred))
+                print(classification_report(y_label_test_clean, y_label_pred))
             
             print("ตารางเมทริกซ์ความสับสน (Confusion Matrix):")
-            cm = confusion_matrix(y_label_test, y_label_pred)
+            cm = confusion_matrix(y_label_test_clean, y_label_pred)
             
             cm_df = pd.DataFrame(
                 cm, 
@@ -136,7 +157,11 @@ def train_and_evaluate(df):
 
 def save_to_onnx(model, filepath, initial_type, timestamp_str):
     try:
-        onnx_model = convert_sklearn(model, initial_types=initial_type, target_opset=12)
+        onnx_model = convert_sklearn(
+            model, 
+            initial_types=initial_type, 
+            target_opset={'': 12, 'ai.onnx.ml': 3}
+        )
         
         # 🌟 1. ฝัง Metadata ลงในไฟล์ ONNX
         meta = onnx_model.metadata_props.add()
