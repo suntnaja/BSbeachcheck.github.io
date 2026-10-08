@@ -18,23 +18,31 @@ from skl2onnx.common.shape_calculator import calculate_linear_classifier_output_
 from onnxmltools.convert.xgboost.operator_converters.XGBoost import convert_xgboost
 from onnxmltools.convert.lightgbm.operator_converters.LightGbm import convert_lightgbm
 
-# 🌟 1. แก้บั๊ก Options ['nocl'] โดยการบังคับลงทะเบียนทับ (overwrite=True)
-try:
-    opts = {'nocl': [True, False], 'zipmap': [True, False, 'columns']}
-    update_registered_converter(
-        XGBClassifier, 'XGBoostXGBClassifier', calculate_linear_classifier_output_shapes, convert_xgboost, options=opts, overwrite=True
-    )
-    update_registered_converter(
-        XGBRegressor, 'XGBoostXGBRegressor', calculate_linear_regressor_output_shapes, convert_xgboost, overwrite=True
-    )
-    update_registered_converter(
-        LGBMClassifier, 'LightGBMLGBMClassifier', calculate_linear_classifier_output_shapes, convert_lightgbm, options=opts, overwrite=True
-    )
-    update_registered_converter(
-        LGBMRegressor, 'LightGBMLGBMRegressor', calculate_linear_regressor_output_shapes, convert_lightgbm, overwrite=True
-    )
-except Exception as e:
-    print("Warning in ONNX registration:", e)
+# ลงทะเบียนโมเดล XGBoost และ LightGBM ให้ ONNX รู้จัก
+classifiers = [
+    (XGBClassifier, 'XGBoostXGBClassifier', convert_xgboost),
+    (LGBMClassifier, 'LightGBMLGBMClassifier', convert_lightgbm)
+]
+for cls_type, name, converter in classifiers:
+    try:
+        update_registered_converter(
+            cls_type, name, calculate_linear_classifier_output_shapes, converter,
+            options={'nocl': [True, False], 'zipmap': [True, False, 'columns']}, overwrite=True
+        )
+    except Exception:
+        pass
+
+regressors = [
+    (XGBRegressor, 'XGBoostXGBRegressor', convert_xgboost),
+    (LGBMRegressor, 'LightGBMLGBMRegressor', convert_lightgbm)
+]
+for reg_type, name, converter in regressors:
+    try:
+        update_registered_converter(
+            reg_type, name, calculate_linear_regressor_output_shapes, converter, overwrite=True
+        )
+    except Exception:
+        pass
 
 def load_and_prepare_data(csv_file_path):
     print(f"กำลังอ่านข้อมูลจากไฟล์: {csv_file_path}...")
@@ -87,9 +95,11 @@ def train_and_evaluate(df):
         
         for cls in missing_classes:
             # 🌟 3. สร้างข้อมูลสุ่มให้กระจายตัว เพื่อแก้บั๊ก TreeEnsembleClassifier (ป้องกันไม่ให้ต้นไม้ตีบตัน)
-            dummy_X = np.random.normal(X_mean, X_std * 0.1, size=(10, X_train_np.shape[1])).astype(np.float32)
-            dummy_y_colors = np.random.normal(y_c_mean, y_c_std * 0.1, size=(10, y_colors_train_np.shape[1])).astype(np.float32)
-            dummy_y_label = np.full(10, cls, dtype=np.int64)
+            extreme_val = 9999.0 + (cls * 1000.0)
+            
+            dummy_X = np.full((50, X_train_np.shape[1]), extreme_val, dtype=np.float32)
+            dummy_y_colors = np.full((50, y_colors_train_np.shape[1]), extreme_val, dtype=np.float32)
+            dummy_y_label = np.full(50, cls, dtype=np.int64)
             
             X_train_np = np.vstack([X_train_np, dummy_X])
             y_colors_train_np = np.vstack([y_colors_train_np, dummy_y_colors])
@@ -178,6 +188,12 @@ def train_and_evaluate(df):
 
 def save_to_onnx(model, filepath, initial_type, timestamp_str):
     try:
+        # 🌟 3. ดักจับ CatBoost ให้ใช้คำสั่งเซฟของตัวเอง (ไม่ต้องง้อ skl2onnx)
+        if 'CatBoost' in type(model).__name__:
+            model.save_model(filepath, format="onnx")
+            return True
+            
+        # สำหรับโมเดล Sklearn, XGBoost, LightGBM
         onnx_model = convert_sklearn(
             model, 
             initial_types=initial_type, 
