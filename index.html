@@ -362,27 +362,28 @@
             const selectedModel = document.getElementById('modelSelect').value;
 
             // 1. รันโมเดล Classifier (พยากรณ์สภาพฟ้า) แบบไดนามิก
-            const classifierPath = `./backend/data/${selectedModel}_Classifier.onnx`;
+            const cacheBuster = Date.now(); // สร้างตัวเลขสุ่มจากเวลาปัจจุบัน
+            const classifierPath = `./backend/data/${selectedModel}_Classifier.onnx?v=${cacheBuster}`;
             const sessionClassifier = await ort.InferenceSession.create(classifierPath);
             
             const metaObj = sessionClassifier.modelMetadata;
+            console.log(`[${selectedModel} Classifier] Metadata ในไฟล์นี้คือ:`, metaObj); // สั่งพิมพ์ค่าออกมาดูใน F12
+            
             let creationTimeStr = null;
 
-            // 1. ลองดึงจาก customMetadata ก่อน (คีย์ 'creation_time')
+            // ลองดึงจาก customMetadata ก่อน
             if (metaObj?.customMetadata && metaObj.customMetadata.creation_time) {
                 creationTimeStr = metaObj.customMetadata.creation_time;
             } 
-            // 2. ถ้าไม่เจอ ให้ลองดึงจาก doc_string (ONNX Runtime มองเป็นตัวแปรชื่อ description)
+            // ถ้าไม่เจอ ให้ลองดึงจาก doc_string (description)
             else if (metaObj?.description && metaObj.description.includes("Model trained and generated on:")) {
                 creationTimeStr = metaObj.description.replace("Model trained and generated on:", "").trim();
             }
 
-            // นำไปแสดงผล
             const metaDisplay = document.getElementById('metadataDisplay');
             if (creationTimeStr) {
                 metaDisplay.innerHTML = `<i class="fa-regular fa-clock"></i> โมเดลนี้สร้างเมื่อ: ${creationTimeStr}`;
             } else {
-                // ดักจับกรณี CatBoost ที่ไม่ได้ฝังข้อมูลมาตั้งแต่ฝั่ง Python
                 if (selectedModel === "CatBoost") {
                     metaDisplay.innerHTML = `[CatBoost] ไม่มีข้อมูลวันที่สร้าง (ข้อจำกัดจากการ Save ของไลบรารี)`;
                 } else {
