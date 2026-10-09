@@ -366,13 +366,31 @@
             const classifierPath = `./backend/data/${selectedModel}_Classifier.onnx?v=${cacheBuster}`;
             const sessionClassifier = await ort.InferenceSession.create(classifierPath);
             
-            // ใช้ Try-Catch หรือดักจับกรณีที่เบราว์เซอร์ลบ Metadata ทิ้ง
+            // ================= ส่วนที่แก้ไขใหม่: ดึงเวลาจากเซิร์ฟเวอร์ (GitHub) โดยตรง =================
             const metaDisplay = document.getElementById('metadataDisplay');
-            if (sessionClassifier.modelMetadata && sessionClassifier.modelMetadata.customMetadata && sessionClassifier.modelMetadata.customMetadata.creation_time) {
-                metaDisplay.innerHTML = `<i class="fa-regular fa-clock"></i> โมเดลนี้สร้างเมื่อ: ${sessionClassifier.modelMetadata.customMetadata.creation_time}`;
-            } else {
-                metaDisplay.innerHTML = `[${selectedModel}] พร้อมใช้งาน (เวอร์ชันล่าสุดอิงตามไฟล์บนเซิร์ฟเวอร์)`;
+            metaDisplay.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> กำลังตรวจสอบเวอร์ชันโมเดล...`;
+
+            try {
+                // ใช้ method 'HEAD' เพื่อดึงแค่ข้อมูลไฟล์ (ไม่ดาวน์โหลดตัวไฟล์ซ้ำ) ช่วยให้โหลดไว
+                const response = await fetch(`./backend/data/${selectedModel}_Classifier.onnx`, { method: 'HEAD', cache: 'no-cache' });
+                const lastModified = response.headers.get('Last-Modified');
+                
+                if (lastModified) {
+                    // แปลงเวลาที่ได้จากเซิร์ฟเวอร์เป็นรูปแบบ วัน/เดือน/ปี เวลาไทย
+                    const dateObj = new Date(lastModified);
+                    const dateStr = dateObj.toLocaleString('th-TH', { 
+                        year: 'numeric', month: 'short', day: 'numeric', 
+                        hour: '2-digit', minute: '2-digit', second: '2-digit' 
+                    });
+                    metaDisplay.innerHTML = `<i class="fa-regular fa-clock"></i> โมเดลอัปเดตล่าสุดเมื่อ: ${dateStr}`;
+                } else {
+                    metaDisplay.innerHTML = `[${selectedModel}] พร้อมใช้งาน (ไฟล์ล่าสุดจากเซิร์ฟเวอร์)`;
+                }
+            } catch (err) {
+                console.warn("ไม่สามารถดึงเวลาจากเซิร์ฟเวอร์ได้:", err);
+                metaDisplay.innerHTML = `[${selectedModel}] พร้อมใช้งาน`;
             }
+            // ===================================================================================
 
             // ดึงชื่อ Input และ Output แบบอัตโนมัติจากโมเดล
             const classifierInputName = sessionClassifier.inputNames[0];
