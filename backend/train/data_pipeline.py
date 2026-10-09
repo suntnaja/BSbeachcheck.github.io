@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import os
 import glob
+import gc
 from transformers import SegformerImageProcessor, SegformerForSemanticSegmentation
 from PIL import Image
 
@@ -80,12 +81,15 @@ for img_path in image_files:
         # B. ตัดขอบฟ้าและสกัดสี
         image = Image.open(img_path).convert("RGB")
         inputs = processor(images=image, return_tensors="pt")
-        outputs = model(**inputs)
-        logits = outputs.logits
-        
-        upsampled_logits = torch.nn.functional.interpolate(
-            logits, size=image.size[::-1], mode="bilinear", align_corners=False
-        )
+
+        with torch.no_grad():
+            outputs = model(**inputs)
+            logits = outputs.logits
+            
+            upsampled_logits = torch.nn.functional.interpolate(
+                logits, size=image.size[::-1], mode="bilinear", align_corners=False
+            )
+            
         pred_seg = upsampled_logits.argmax(dim=1)[0].numpy()
         
         sky_mask = (pred_seg == 2).astype(np.uint8)
@@ -116,6 +120,10 @@ for img_path in image_files:
             'label': label
         })
         print(f"✅ สำเร็จ: {filename} (เทียบกับสภาพอากาศเวลา {w_row['datetime']})")
+
+        del image, inputs, outputs, logits, upsampled_logits, pred_seg, sky_mask, img_cv
+        # บังคับระบบคืนพื้นที่ RAM ทันที
+        gc.collect()
         
     except Exception as e:
         print(f"❌ Error {filename}: {e}")
