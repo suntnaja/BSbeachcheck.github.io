@@ -92,7 +92,7 @@
                         <option value="CatBoost">CatBoost</option>
                         <option value="XGBoost">XGBoost</option>
                         <option value="LightGBM">LightGBM</option>
-                        <option value="HistGradientBoosting">HistGradientBoosting</option>
+                        <option value="GradientBoosting">GradientBoosting</option>
                     </select>
                 </div>
                 
@@ -365,16 +365,35 @@
             const classifierPath = `./backend/data/${selectedModel}_Classifier.onnx`;
             const sessionClassifier = await ort.InferenceSession.create(classifierPath);
             
-            const customMeta = sessionClassifier.modelMetadata?.customMetadata;
-            if (customMeta && customMeta.creation_time) {
-                document.getElementById('metadataDisplay').innerHTML = `<i class="fa-regular fa-clock"></i> โมเดลนี้สร้างเมื่อ: ${customMeta.creation_time}`;
-            } else {
-                document.getElementById('metadataDisplay').innerText = `[${selectedModel}] ไม่มีข้อมูลวันที่สร้างในโมเดลนี้`;
+            const metaObj = sessionClassifier.modelMetadata;
+            let creationTimeStr = null;
+
+            // 1. ลองดึงจาก customMetadata ก่อน (คีย์ 'creation_time')
+            if (metaObj?.customMetadata && metaObj.customMetadata.creation_time) {
+                creationTimeStr = metaObj.customMetadata.creation_time;
+            } 
+            // 2. ถ้าไม่เจอ ให้ลองดึงจาก doc_string (ONNX Runtime มองเป็นตัวแปรชื่อ description)
+            else if (metaObj?.description && metaObj.description.includes("Model trained and generated on:")) {
+                creationTimeStr = metaObj.description.replace("Model trained and generated on:", "").trim();
             }
+
+            // นำไปแสดงผล
+            const metaDisplay = document.getElementById('metadataDisplay');
+            if (creationTimeStr) {
+                metaDisplay.innerHTML = `<i class="fa-regular fa-clock"></i> โมเดลนี้สร้างเมื่อ: ${creationTimeStr}`;
+            } else {
+                // ดักจับกรณี CatBoost ที่ไม่ได้ฝังข้อมูลมาตั้งแต่ฝั่ง Python
+                if (selectedModel === "CatBoost") {
+                    metaDisplay.innerHTML = `[CatBoost] ไม่มีข้อมูลวันที่สร้าง (ข้อจำกัดจากการ Save ของไลบรารี)`;
+                } else {
+                    metaDisplay.innerHTML = `[${selectedModel}] ไม่มีข้อมูลวันที่สร้างในโมเดลนี้`;
+                }
+            }
+            // ================================================================
             
             // ดึงชื่อ Input และ Output แบบอัตโนมัติจากโมเดล
             const classifierInputName = sessionClassifier.inputNames[0];
-            const classifierOutputName = sessionClassifier.outputNames[0]; 
+            const classifierOutputName = sessionClassifier.outputNames[0];
             
             // สร้าง Feeds โดยใช้ชื่อ Input ที่ถูกต้อง
             const classifierFeeds = {};
