@@ -194,25 +194,35 @@ def save_to_onnx(model, filepath, initial_type, timestamp_str):
         if 'CatBoost' in type(model).__name__:
             model.save_model(filepath, format="onnx")
             
-            # --- เริ่มกระบวนการผ่าตัด (Patch) ไฟล์ ONNX ของ CatBoost ---
+            # --- เริ่มกระบวนการซ่อมไฟล์ ONNX ของ CatBoost (ตรรกะใหม่) ---
             onnx_model = onnx.load(filepath)
+            
+            # เช็คว่าเป็น Classifier หรือ Regressor เพื่อซ่อมให้ถูกจุด
+            is_classifier = 'Classifier' in type(model).__name__
+            
             for node in onnx_model.graph.node:
-                # แก้บั๊ก Classifier: ลบและเพิ่ม Class Labels อย่างถูกต้องตามกฎของ Protobuf
-                if node.op_type == 'TreeEnsembleClassifier':
-                    # วนลูปถอยหลังเพื่อลบ attribute ที่ชื่อ 'classlabels_strings'
+                # 1. ซ่อม Classifier
+                if is_classifier and node.op_type == 'TreeEnsembleClassifier':
+                    # ลบ Attribute เดิมที่ชื่อซ้ำและมีปัญหาออกทั้งหมดก่อน
+                    # (ใช้การ del ทีละตัวแบบถอยหลัง เพื่อเลี่ยง Error: does not support assignment)
                     for i in range(len(node.attribute) - 1, -1, -1):
-                        if node.attribute[i].name == 'classlabels_strings':
+                        if node.attribute[i].name in ['classlabels_strings', 'classlabels_int64s']:
                             del node.attribute[i]
                     
-                    node.attribute.append(helper.make_attribute("classlabels_int64s", [0, 1, 2, 3]))
+                    # สร้าง Attribute ใหม่ที่ถูกต้อง (0, 1, 2, 3) ใส่เข้าไป
+                    attr = helper.make_attribute("classlabels_int64s", [0, 1, 2, 3])
+                    node.attribute.append(attr)
                 
-                # แก้บั๊ก Regressor: ลืมใส่จำนวน Output Targets
-                elif node.op_type == 'TreeEnsembleRegressor':
-                    n_targets_attr = next((a for a in node.attribute if a.name == 'n_targets'), None)
-                    if n_targets_attr is None:
-                        node.attribute.append(helper.make_attribute("n_targets", 6))
-                    elif n_targets_attr.i == 0:
-                        n_targets_attr.i = 6
+                # 2. ซ่อม Regressor
+                elif not is_classifier and node.op_type == 'TreeEnsembleRegressor':
+                    # ลบ Attribute เดิมที่ชื่อซ้ำและมีปัญหาออกทั้งหมดก่อน
+                    for i in range(len(node.attribute) - 1, -1, -1):
+                        if node.attribute[i].name == 'n_targets':
+                            del node.attribute[i]
+                    
+                    # สร้าง Attribute ใหม่ที่ถูกต้อง (6) ใส่เข้าไป
+                    attr = helper.make_attribute("n_targets", 6)
+                    node.attribute.append(attr)
                         
             # ฝังเวลาเข้าไปใน CatBoost
             meta = onnx_model.metadata_props.add()
@@ -220,6 +230,7 @@ def save_to_onnx(model, filepath, initial_type, timestamp_str):
             meta.value = timestamp_str
             onnx_model.doc_string = f"Model trained and generated on: {timestamp_str}"
             
+            # บันทึกทับไฟล์เดิม
             onnx.save(onnx_model, filepath)
             return True
             
