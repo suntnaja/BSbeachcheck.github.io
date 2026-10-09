@@ -7,7 +7,7 @@ from sklearn.metrics import accuracy_score, mean_absolute_error, classification_
 from sklearn.multioutput import MultiOutputRegressor
 
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.ensemble import HistGradientBoostingClassifier, HistGradientBoostingRegressor
+from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
 from xgboost import XGBClassifier, XGBRegressor
 from lightgbm import LGBMClassifier, LGBMRegressor
 from catboost import CatBoostClassifier, CatBoostRegressor
@@ -112,9 +112,9 @@ def train_and_evaluate(df):
             'reg': RandomForestRegressor(n_estimators=100, random_state=42)
         },
         
-        'HistGradient': {
-            'clf': HistGradientBoostingClassifier(random_state=42, max_iter=30, max_depth=3, max_leaf_nodes=10),
-            'reg': MultiOutputRegressor(HistGradientBoostingRegressor(random_state=42, max_iter=30, max_depth=3, max_leaf_nodes=10))
+        'GradientBoosting': {
+            'clf': GradientBoostingClassifier(random_state=42),
+            'reg': MultiOutputRegressor(GradientBoostingRegressor(random_state=42))
         },
 
         'XGBoost': {
@@ -192,11 +192,6 @@ def save_to_onnx(model, filepath, initial_type, timestamp_str):
         if 'CatBoost' in type(model).__name__:
             model.save_model(filepath, format="onnx")
             return True
-
-        # 🌟 2. ปิด zipmap เฉพาะ HistGradientBoostingClassifier เท่านั้น
-        convert_options = None
-        if type(model).__name__ == 'HistGradientBoostingClassifier':
-            convert_options = {type(model): {'zipmap': False}}
             
         # สำหรับโมเดล Sklearn, XGBoost, LightGBM
         onnx_model = convert_sklearn(
