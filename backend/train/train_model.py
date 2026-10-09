@@ -1,3 +1,5 @@
+import onnx
+from onnx import helper
 import pandas as pd
 import numpy as np
 import os
@@ -188,9 +190,33 @@ def train_and_evaluate(df):
 
 def save_to_onnx(model, filepath, initial_type, timestamp_str):
     try:
-        # 🌟 3. ดักจับ CatBoost ให้ใช้คำสั่งเซฟของตัวเอง (ไม่ต้องง้อ skl2onnx)
+        # 🌟 1. จัดการ CatBoost (ใช้คำสั่งเซฟของตัวเอง + ผ่าตัดแก้บั๊ก ONNX)
         if 'CatBoost' in type(model).__name__:
             model.save_model(filepath, format="onnx")
+            
+            # --- เริ่มกระบวนการผ่าตัด (Patch) ไฟล์ ONNX ของ CatBoost ---
+            onnx_model = onnx.load(filepath)
+            for node in onnx_model.graph.node:
+                # แก้บั๊ก Classifier: ลืมใส่ Class Labels
+                if node.op_type == 'TreeEnsembleClassifier':
+                    node.attribute[:] = [a for a in node.attribute if a.name != 'classlabels_strings']
+                    node.attribute.append(helper.make_attribute("classlabels_int64s", [0, 1, 2, 3]))
+                
+                # แก้บั๊ก Regressor: ลืมใส่จำนวน Output Targets
+                elif node.op_type == 'TreeEnsembleRegressor':
+                    n_targets_attr = next((a for a in node.attribute if a.name == 'n_targets'), None)
+                    if n_targets_attr is None:
+                        node.attribute.append(helper.make_attribute("n_targets", 6))
+                    elif n_targets_attr.i == 0:
+                        n_targets_attr.i = 6
+                        
+            # ฝังเวลาเข้าไปใน CatBoost
+            meta = onnx_model.metadata_props.add()
+            meta.key = "creation_time"
+            meta.value = timestamp_str
+            onnx_model.doc_string = f"Model trained and generated on: {timestamp_str}"
+            
+            onnx.save(onnx_model, filepath)
             return True
             
         # สำหรับโมเดล Sklearn, XGBoost, LightGBM
