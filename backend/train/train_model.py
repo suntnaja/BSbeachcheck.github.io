@@ -197,9 +197,13 @@ def save_to_onnx(model, filepath, initial_type, timestamp_str):
             # --- เริ่มกระบวนการผ่าตัด (Patch) ไฟล์ ONNX ของ CatBoost ---
             onnx_model = onnx.load(filepath)
             for node in onnx_model.graph.node:
-                # แก้บั๊ก Classifier: ลืมใส่ Class Labels
+                # แก้บั๊ก Classifier: ลบและเพิ่ม Class Labels อย่างถูกต้องตามกฎของ Protobuf
                 if node.op_type == 'TreeEnsembleClassifier':
-                    node.attribute[:] = [a for a in node.attribute if a.name != 'classlabels_strings']
+                    # วนลูปถอยหลังเพื่อลบ attribute ที่ชื่อ 'classlabels_strings'
+                    for i in range(len(node.attribute) - 1, -1, -1):
+                        if node.attribute[i].name == 'classlabels_strings':
+                            del node.attribute[i]
+                    
                     node.attribute.append(helper.make_attribute("classlabels_int64s", [0, 1, 2, 3]))
                 
                 # แก้บั๊ก Regressor: ลืมใส่จำนวน Output Targets
