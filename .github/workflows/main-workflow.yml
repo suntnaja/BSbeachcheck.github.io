@@ -3,7 +3,7 @@ name: 🚀 Auto Pipeline & Train Model
 on:
   schedule:
     # ตั้งให้ตื่นขึ้นมาเช็คทุกๆ 2 ชั่วโมง (นาทีที่ 0 ของชั่วโมงเลขคู่)
-    - cron: '0 */2 * * *' 
+    - cron: '0 0 * * *' 
 
 permissions:
   contents: write
