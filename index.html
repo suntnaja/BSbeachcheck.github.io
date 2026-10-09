@@ -362,36 +362,18 @@
             const selectedModel = document.getElementById('modelSelect').value;
 
             // 1. รันโมเดล Classifier (พยากรณ์สภาพฟ้า) แบบไดนามิก
-            const cacheBuster = Date.now(); // สร้างตัวเลขสุ่มจากเวลาปัจจุบัน
+            const cacheBuster = Date.now(); 
             const classifierPath = `./backend/data/${selectedModel}_Classifier.onnx?v=${cacheBuster}`;
             const sessionClassifier = await ort.InferenceSession.create(classifierPath);
             
-            const metaObj = sessionClassifier.modelMetadata;
-            console.log(`[${selectedModel} Classifier] Metadata ในไฟล์นี้คือ:`, metaObj); // สั่งพิมพ์ค่าออกมาดูใน F12
-            
-            let creationTimeStr = null;
-
-            // ลองดึงจาก customMetadata ก่อน
-            if (metaObj?.customMetadata && metaObj.customMetadata.creation_time) {
-                creationTimeStr = metaObj.customMetadata.creation_time;
-            } 
-            // ถ้าไม่เจอ ให้ลองดึงจาก doc_string (description)
-            else if (metaObj?.description && metaObj.description.includes("Model trained and generated on:")) {
-                creationTimeStr = metaObj.description.replace("Model trained and generated on:", "").trim();
-            }
-
+            // ใช้ Try-Catch หรือดักจับกรณีที่เบราว์เซอร์ลบ Metadata ทิ้ง
             const metaDisplay = document.getElementById('metadataDisplay');
-            if (creationTimeStr) {
-                metaDisplay.innerHTML = `<i class="fa-regular fa-clock"></i> โมเดลนี้สร้างเมื่อ: ${creationTimeStr}`;
+            if (sessionClassifier.modelMetadata && sessionClassifier.modelMetadata.customMetadata && sessionClassifier.modelMetadata.customMetadata.creation_time) {
+                metaDisplay.innerHTML = `<i class="fa-regular fa-clock"></i> โมเดลนี้สร้างเมื่อ: ${sessionClassifier.modelMetadata.customMetadata.creation_time}`;
             } else {
-                if (selectedModel === "CatBoost") {
-                    metaDisplay.innerHTML = `[CatBoost] ไม่มีข้อมูลวันที่สร้าง (ข้อจำกัดจากการ Save ของไลบรารี)`;
-                } else {
-                    metaDisplay.innerHTML = `[${selectedModel}] ไม่มีข้อมูลวันที่สร้างในโมเดลนี้`;
-                }
+                metaDisplay.innerHTML = `[${selectedModel}] พร้อมใช้งาน (เวอร์ชันล่าสุดอิงตามไฟล์บนเซิร์ฟเวอร์)`;
             }
-            // ================================================================
-            
+
             // ดึงชื่อ Input และ Output แบบอัตโนมัติจากโมเดล
             const classifierInputName = sessionClassifier.inputNames[0];
             const classifierOutputName = sessionClassifier.outputNames[0];
