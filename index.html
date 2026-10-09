@@ -357,53 +357,28 @@
             ]);
             
             const tensor = new ort.Tensor('float32', inputFeatures, [1, 6]);
-
-            // ดึงชื่อโมเดลที่ผู้ใช้เลือกจาก Dropdown
             const selectedModel = document.getElementById('modelSelect').value;
 
-            // 1. รันโมเดล Classifier (พยากรณ์สภาพฟ้า) แบบไดนามิก
+            // แสดงสถานะว่ากำลังใช้โมเดลอะไร
+            document.getElementById('metadataDisplay').innerHTML = `<i class="fa-solid fa-circle-check"></i> กำลังใช้งานโมเดล: ${selectedModel}`;
+
+            // ป้องกันเบราว์เซอร์จำแคช (เพื่อให้ดึงไฟล์ล่าสุดเสมอ)
             const cacheBuster = Date.now(); 
+
+            // ================= 1. รันโมเดล Classifier (พยากรณ์สภาพฟ้า) =================
             const classifierPath = `./backend/data/${selectedModel}_Classifier.onnx?v=${cacheBuster}`;
             const sessionClassifier = await ort.InferenceSession.create(classifierPath);
             
-            // ================= ส่วนที่แก้ไขใหม่: ดึงเวลาจากเซิร์ฟเวอร์ (GitHub) โดยตรง =================
-            const metaDisplay = document.getElementById('metadataDisplay');
-            metaDisplay.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> กำลังตรวจสอบเวอร์ชันโมเดล...`;
-
-            try {
-                // ใช้ method 'HEAD' เพื่อดึงแค่ข้อมูลไฟล์ (ไม่ดาวน์โหลดตัวไฟล์ซ้ำ) ช่วยให้โหลดไว
-                const response = await fetch(`./backend/data/${selectedModel}_Classifier.onnx`, { method: 'HEAD', cache: 'no-cache' });
-                const lastModified = response.headers.get('Last-Modified');
-                
-                if (lastModified) {
-                    // แปลงเวลาที่ได้จากเซิร์ฟเวอร์เป็นรูปแบบ วัน/เดือน/ปี เวลาไทย
-                    const dateObj = new Date(lastModified);
-                    const dateStr = dateObj.toLocaleString('th-TH', { 
-                        year: 'numeric', month: 'short', day: 'numeric', 
-                        hour: '2-digit', minute: '2-digit', second: '2-digit' 
-                    });
-                    metaDisplay.innerHTML = `<i class="fa-regular fa-clock"></i> โมเดลอัปเดตล่าสุดเมื่อ: ${dateStr}`;
-                } else {
-                    metaDisplay.innerHTML = `[${selectedModel}] พร้อมใช้งาน (ไฟล์ล่าสุดจากเซิร์ฟเวอร์)`;
-                }
-            } catch (err) {
-                console.warn("ไม่สามารถดึงเวลาจากเซิร์ฟเวอร์ได้:", err);
-                metaDisplay.innerHTML = `[${selectedModel}] พร้อมใช้งาน`;
-            }
-            // ===================================================================================
-
-            // ดึงชื่อ Input และ Output แบบอัตโนมัติจากโมเดล
             const classifierInputName = sessionClassifier.inputNames[0];
-            const classifierOutputName = sessionClassifier.outputNames[0];
+            const classifierOutputName = sessionClassifier.outputNames[0]; 
             
-            // สร้าง Feeds โดยใช้ชื่อ Input ที่ถูกต้อง
             const classifierFeeds = {};
             classifierFeeds[classifierInputName] = tensor;
 
             const resultsClassifier = await sessionClassifier.run(classifierFeeds, [classifierOutputName]);
             const predictedLabel = Number(resultsClassifier[classifierOutputName].data[0]); 
 
-            // 2. รันโมเดล Regressor (พยากรณ์สี) แบบไดนามิก
+            // ================= 2. รันโมเดล Regressor (พยากรณ์สี) =================
             const regressorPath = `./backend/data/${selectedModel}_Regressor.onnx?v=${cacheBuster}`;
             const sessionRegressor = await ort.InferenceSession.create(regressorPath);
             
