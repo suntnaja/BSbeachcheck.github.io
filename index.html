@@ -386,7 +386,7 @@
             const predictedLabel = Number(resultsClassifier[classifierOutputName].data[0]); 
 
             // 2. รันโมเดล Regressor (พยากรณ์สี) แบบไดนามิก
-            const regressorPath = `./backend/data/${selectedModel}_Regressor.onnx`;
+            const regressorPath = `./backend/data/${selectedModel}_Regressor.onnx?v=${cacheBuster}`;
             const sessionRegressor = await ort.InferenceSession.create(regressorPath);
             
             // ดึงชื่อ Input และ Output แบบอัตโนมัติจากโมเดล
@@ -405,9 +405,16 @@
                 resultsRegressor[regressorOutputName].data[1], 
                 resultsRegressor[regressorOutputName].data[2]
             ];
+
+            // ดึงผลลัพธ์ HSV จากโมเดลโดยตรง (ตำแหน่ง 3, 4, 5) โดยไม่ต้องใช้ฟังก์ชัน rgbToHsv แล้ว
+            const predictedHsv = [
+                resultsRegressor[regressorOutputName].data[3], 
+                resultsRegressor[regressorOutputName].data[4], 
+                resultsRegressor[regressorOutputName].data[5]
+            ];
             // ==================================================
 
-            const predictedHsv = rgbToHsv(predictedRgb[0], predictedRgb[1], predictedRgb[2]);
+            //const predictedHsv = rgbToHsv(predictedRgb[0], predictedRgb[1], predictedRgb[2]);
 
             // 3. ค้นหารูปภาพจากฐานข้อมูล .csv (กลุ่ม label เดียวกัน และคล้าย >= 90%)
             let matchedImage = null;
