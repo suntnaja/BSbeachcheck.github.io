@@ -446,6 +446,69 @@
         .recommendation-box h4 { font-size: .9rem; color: var(--primary); margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
         .recommendation-box p { font-size: .95rem; color: var(--reco-text); }
 
+        /* ================= IMAGE VIEWER (LIGHTBOX) ================= */
+        .expand-btn {
+            position: absolute; top: 12px; left: 12px; z-index: 3; display: none; place-items: center;
+            width: 40px; height: 40px; border-radius: 13px; cursor: pointer; color: #fff; font-size: .95rem;
+            background: rgba(10,25,50,.45); border: 1px solid rgba(255,255,255,.4);
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            transition: transform .25s ease, background .25s ease;
+        }
+        .expand-btn:hover { transform: scale(1.12); background: rgba(10,25,50,.65); }
+        .expand-btn:active { transform: scale(.94); }
+        .image-preview-container img[style*="display: block"] { cursor: zoom-in; }
+        .image-preview-container img[style*="display: block"] ~ .expand-btn { display: grid; }
+
+        .lightbox {
+            position: fixed; inset: 0; z-index: 100; display: none; align-items: center; justify-content: center;
+            padding: 72px 22px 76px; background: rgba(5, 18, 38, .6);
+            backdrop-filter: blur(20px) saturate(140%); -webkit-backdrop-filter: blur(20px) saturate(140%);
+        }
+        .lightbox.open { display: flex; animation: lbFade .35s ease both; }
+        @keyframes lbFade { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes lbPop { from { opacity: 0; transform: scale(.92) translateY(14px); } to { opacity: 1; transform: none; } }
+        .lb-stage {
+            position: relative; max-width: 100%; max-height: 100%; border-radius: 22px; overflow: hidden; cursor: zoom-in; touch-action: none;
+            border: 1px solid rgba(255,255,255,.35); box-shadow: 0 40px 90px -20px rgba(0,0,0,.7);
+            animation: lbPop .5s cubic-bezier(.2,.8,.2,1) both;
+        }
+        .lb-stage.zoomed { cursor: grab; }
+        .lb-stage.dragging { cursor: grabbing; }
+        .lb-img {
+            display: block; max-width: calc(100vw - 44px); max-height: calc(100vh - 148px); max-height: calc(100dvh - 148px);
+            object-fit: contain; user-select: none; -webkit-user-drag: none; transform-origin: center; will-change: transform;
+            transition: transform .28s cubic-bezier(.2,.8,.2,1);
+        }
+        .lb-img.no-anim { transition: none; }
+        .lb-actions { position: fixed; top: 16px; right: 16px; z-index: 2; display: flex; gap: 10px; }
+        .lb-btn {
+            width: 44px; height: 44px; border-radius: 15px; display: grid; place-items: center; cursor: pointer; text-decoration: none;
+            color: #fff; font-size: 1rem; border: 1px solid rgba(255,255,255,.4);
+            background: linear-gradient(145deg, rgba(255,255,255,.28), rgba(255,255,255,.1));
+            backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 8px 20px rgba(0,0,0,.3);
+            transition: transform .25s ease, background .25s ease;
+        }
+        .lb-btn:hover { transform: translateY(-3px) scale(1.06); background: linear-gradient(145deg, rgba(255,255,255,.4), rgba(255,255,255,.18)); }
+        .lb-btn:active { transform: scale(.94); }
+        .lb-btn.close:hover { background: linear-gradient(145deg, rgba(255,110,110,.7), rgba(220,60,60,.5)); }
+        .lb-caption {
+            position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 2; max-width: calc(100vw - 32px);
+            display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center;
+            padding: 9px 16px; border-radius: 40px; font-size: .8rem; color: #fff; white-space: nowrap;
+            background: rgba(10,25,50,.5); border: 1px solid rgba(255,255,255,.3);
+            backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+        }
+        .lb-caption .sim { font-weight: 700; color: #7be3ff; }
+        .lb-caption .zoom { opacity: .85; min-width: 3.2em; text-align: center; }
+        @media (max-width: 480px) {
+            .lightbox { padding: 66px 10px 84px; }
+            .lb-btn { width: 40px; height: 40px; border-radius: 13px; }
+            .lb-actions { gap: 8px; top: 12px; right: 12px; }
+            .lb-caption { font-size: .74rem; bottom: 16px; }
+            .lb-img { max-width: calc(100vw - 20px); }
+        }
+
         /* ================= RESPONSIVE ================= */
         @media (max-width: 859px) {
             :root { --horizon: 50vh; }
@@ -595,12 +658,29 @@
             <div class="image-preview-container">
                 <div class="similarity-badge" id="resSimilarity"><i class="fa-solid fa-check-double"></i> ความแม่นยำ: -%</div>
                 <img id="resSkyImage" src="" alt="ภาพจำลองท้องฟ้า">
+                <button type="button" class="expand-btn" id="expandBtn" aria-label="ดูภาพเต็ม" title="ดูภาพเต็ม"><i class="fa-solid fa-expand"></i></button>
                 <div id="resNoImage" class="no-image-msg"><i class="fa-solid fa-image fa-2x" style="display:block;margin-bottom:10px;"></i>ยังไม่มีรูปที่ใกล้เคียง</div>
                 <div class="image-badge"><i class="fa-solid fa-images"></i> ภาพถ่ายใกล้เคียงจากคลัง</div>
             </div>
         </div>
     </div>
 </main>
+
+<!-- Full image viewer -->
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="ดูภาพเต็ม">
+    <div class="lb-actions">
+        <button type="button" class="lb-btn" id="lbZoomIn" aria-label="ซูมเข้า" title="ซูมเข้า (+)"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+        <button type="button" class="lb-btn" id="lbZoomOut" aria-label="ซูมออก" title="ซูมออก (-)"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+        <button type="button" class="lb-btn" id="lbReset" aria-label="รีเซ็ตขนาด" title="รีเซ็ตขนาด (0)"><i class="fa-solid fa-compress"></i></button>
+        <a class="lb-btn" id="lbOpen" href="#" target="_blank" rel="noopener" aria-label="เปิดในแท็บใหม่" title="เปิดในแท็บใหม่"><i class="fa-solid fa-up-right-from-square"></i></a>
+        <a class="lb-btn" id="lbDownload" href="#" download aria-label="ดาวน์โหลดภาพ" title="ดาวน์โหลดภาพ"><i class="fa-solid fa-download"></i></a>
+        <button type="button" class="lb-btn close" id="lbClose" aria-label="ปิด" title="ปิด (Esc)"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="lb-stage" id="lbStage">
+        <img class="lb-img" id="lbImg" src="" alt="ภาพจำลองท้องฟ้า" draggable="false">
+    </div>
+    <div class="lb-caption" id="lbCaption"><span class="sim" id="lbSim"></span><span class="zoom" id="lbZoom">100%</span><span><i class="fa-solid fa-hand-pointer"></i> คลิก/แตะที่รูปเพื่อซูม · เลื่อนเพื่อปรับขนาด · ลากเพื่อเลื่อนดู</span></div>
+</div>
 
 <script>
     /* ================= UI HELPERS (theme / scene / motion) ================= */
@@ -694,6 +774,92 @@
         r.setProperty('--sun-y', top.toFixed(1) + 'vh');
         r.setProperty('--warm', warm.toFixed(2));
     };
+
+    // ===== ดูภาพเต็ม (Lightbox: ซูม / ลากเลื่อน / ดาวน์โหลด) =====
+    (function () {
+        const $ = id => document.getElementById(id);
+        const lb = $('lightbox'), stage = $('lbStage'), img = $('lbImg');
+        let scale = 1, tx = 0, ty = 0, drag = null, moved = false, lastFocus = null;
+
+        function clamp() {
+            if (scale <= 1) { tx = ty = 0; return; }
+            const r = stage.getBoundingClientRect();
+            const mx = r.width * (scale - 1) / 2, my = r.height * (scale - 1) / 2;
+            tx = Math.max(-mx, Math.min(mx, tx));
+            ty = Math.max(-my, Math.min(my, ty));
+        }
+        function apply() {
+            img.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + scale + ')';
+            stage.classList.toggle('zoomed', scale > 1);
+            $('lbZoom').textContent = Math.round(scale * 100) + '%';
+        }
+        function setScale(s) { scale = Math.min(4, Math.max(1, s)); clamp(); apply(); }
+
+        function open() {
+            const src = $('resSkyImage').getAttribute('src');
+            if (!src) return;
+            lastFocus = document.activeElement;
+            img.src = src;
+            $('lbOpen').href = src;
+            $('lbDownload').href = src;
+            $('lbDownload').setAttribute('download', src.split('/').pop().split('?')[0] || 'sky.jpg');
+            const simEl = $('resSimilarity');
+            $('lbSim').textContent = simEl && simEl.style.display !== 'none' ? simEl.textContent.trim() : '';
+            $('lbSim').style.display = $('lbSim').textContent ? '' : 'none';
+            scale = 1; tx = ty = 0; apply();
+            lb.classList.add('open');
+            document.body.style.overflow = 'hidden';
+            $('lbClose').focus();
+        }
+        function close() {
+            lb.classList.remove('open');
+            document.body.style.overflow = '';
+            if (lastFocus && lastFocus.focus) lastFocus.focus();
+        }
+
+        $('resSkyImage').addEventListener('click', open);
+        $('expandBtn').addEventListener('click', open);
+        $('lbClose').addEventListener('click', close);
+        $('lbZoomIn').addEventListener('click', function () { setScale(scale + 0.5); });
+        $('lbZoomOut').addEventListener('click', function () { setScale(scale - 0.5); });
+        $('lbReset').addEventListener('click', function () { setScale(1); });
+        lb.addEventListener('click', function (e) { if (e.target === lb) close(); });
+
+        document.addEventListener('keydown', function (e) {
+            if (!lb.classList.contains('open')) return;
+            if (e.key === 'Escape') close();
+            else if (e.key === '+' || e.key === '=') setScale(scale + 0.5);
+            else if (e.key === '-') setScale(scale - 0.5);
+            else if (e.key === '0') setScale(1);
+        });
+
+        stage.addEventListener('wheel', function (e) {
+            e.preventDefault();
+            setScale(scale + (e.deltaY < 0 ? 0.25 : -0.25));
+        }, { passive: false });
+
+        stage.addEventListener('pointerdown', function (e) {
+            moved = false;
+            drag = { x: e.clientX, y: e.clientY, tx: tx, ty: ty };
+            stage.setPointerCapture(e.pointerId);
+        });
+        stage.addEventListener('pointermove', function (e) {
+            if (!drag) return;
+            const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+            if (Math.abs(dx) + Math.abs(dy) > 5) moved = true;
+            if (scale > 1 && moved) {
+                stage.classList.add('dragging'); img.classList.add('no-anim');
+                tx = drag.tx + dx; ty = drag.ty + dy; clamp(); apply();
+            }
+        });
+        function endDrag() { drag = null; stage.classList.remove('dragging'); img.classList.remove('no-anim'); }
+        stage.addEventListener('pointerup', function () {
+            const wasMoved = moved; endDrag();
+            if (!wasMoved) setScale(scale > 1 ? 1 : 2);   // คลิก/แตะ = สลับซูม
+        });
+        stage.addEventListener('pointercancel', endDrag);
+        window.addEventListener('resize', function () { clamp(); apply(); });
+    })();
 
     // เล่นแอนิเมชันผลลัพธ์ซ้ำทุกครั้งที่พยากรณ์ใหม่
     function replayResultAnimation() {
