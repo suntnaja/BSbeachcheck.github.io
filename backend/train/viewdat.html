@@ -142,10 +142,10 @@
             if (originalPath) {
                 // ถ้าใน CSV ไม่มีคำว่า 'images/' นำหน้า ให้เติมเข้าไป
                 if (!originalPath.startsWith('images/')) {
-                     displayPath = `./images/${originalPath}`;
+                     displayPath = `../images/${originalPath}`;
                 } else {
                      // ถ้ามี 'images/' นำหน้าอยู่แล้ว ก็ใส่ './' เพิ่มไปข้างหน้าเพื่อความชัวร์
-                     displayPath = `./${originalPath}`;
+                     displayPath = `../${originalPath}`;
                 }
             }
 
