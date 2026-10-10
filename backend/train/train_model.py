@@ -192,33 +192,34 @@ def save_to_onnx(model, filepath, initial_type, timestamp_str):
     try:
         # 🌟 1. จัดการ CatBoost (ใช้คำสั่งเซฟของตัวเอง + ผ่าตัดแก้บั๊ก ONNX)
         if 'CatBoost' in type(model).__name__:
-            # เซฟไฟล์ดิบก่อน
             model.save_model(filepath, format="onnx")
-            
-            # โหลดไฟล์ดิบมาผ่าตัด
             onnx_model = onnx.load(filepath)
-            is_classifier = 'Classifier' in type(model).__name__
             
             for node in onnx_model.graph.node:
-                if node.op_type in ['TreeEnsembleClassifier', 'TreeEnsembleRegressor']:
-                    # 1. กวาด Attribute เดิมเก็บไว้ (ยกเว้นตัวที่มีปัญหา)
+                # ซ่อม 1: โหนด Classifier
+                if node.op_type == 'TreeEnsembleClassifier':
                     valid_attrs = []
                     for attr in node.attribute:
+                        # 💥 เตะ attribute 'n_targets' ที่หลงเข้ามาผิดๆ ทิ้งไป รวมถึงล้าง labels เดิมด้วย
                         if attr.name not in ['classlabels_strings', 'classlabels_int64s', 'n_targets']:
                             valid_attrs.append(attr)
                     
-                    # 2. เคลียร์ Attribute เดิมของโหนดนี้ทิ้งให้หมด (วิธีนี้เลี่ยงบั๊ก Assignment ได้ 100%)
                     del node.attribute[:]
-                    
-                    # 3. เติมค่าที่ถูกต้องเข้าไปในลิสต์ที่พักไว้
-                    if is_classifier:
-                        valid_attrs.append(helper.make_attribute("classlabels_int64s", [0, 1, 2, 3]))
-                    else:
-                        valid_attrs.append(helper.make_attribute("n_targets", 6))
-                        
-                    # 4. ยัดข้อมูลทั้งหมดกลับเข้าไปในโหนด
+                    # ใส่ Labels ใหม่ที่ถูกต้อง
+                    valid_attrs.append(helper.make_attribute("classlabels_int64s", [0, 1, 2, 3]))
                     node.attribute.extend(valid_attrs)
-                    print(f"   [Patch] ซ่อมแซมโหนด {node.op_type} สำเร็จ!")
+                    
+                # ซ่อม 2: โหนด Regressor
+                elif node.op_type == 'TreeEnsembleRegressor':
+                    valid_attrs = []
+                    for attr in node.attribute:
+                        if attr.name != 'n_targets':
+                            valid_attrs.append(attr)
+                            
+                    del node.attribute[:]
+                    # กำหนดเป้าหมายสี (6 ค่า) ให้ถูกต้อง
+                    valid_attrs.append(helper.make_attribute("n_targets", 6))
+                    node.attribute.extend(valid_attrs)
                         
             # ฝังเวลา
             meta = onnx_model.metadata_props.add()
@@ -226,7 +227,6 @@ def save_to_onnx(model, filepath, initial_type, timestamp_str):
             meta.value = timestamp_str
             onnx_model.doc_string = f"Model trained and generated on: {timestamp_str}"
             
-            # เซฟทับไฟล์เดิม
             onnx.save(onnx_model, filepath)
             return True
             
