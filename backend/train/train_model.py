@@ -188,45 +188,51 @@ def train_and_evaluate(df):
 
     return trained_models
 
+def _fix_tree_node(node, n_expected, is_classifier):
+    """Rewrite attributes so base_values has 0 or n_expected entries."""
+    kept, base = [], None
+    for attr in node.attribute:
+        if attr.name == 'base_values':
+            base = list(attr.floats)
+            continue
+        if attr.name == 'n_targets':
+            continue
+        if is_classifier and attr.name in ('classlabels_strings', 'classlabels_int64s'):
+            continue
+        kept.append(attr)
+
+    if base and len(base) == 1:
+        base = base * n_expected          # constant shift is harmless for softmax
+    elif not base or len(base) != n_expected:
+        base = [0.0] * n_expected         # CatBoost MultiClass/MultiRMSE has no bias anyway
+
+    kept.append(helper.make_attribute("base_values", base))
+    if is_classifier:
+        kept.append(helper.make_attribute("classlabels_int64s", [0, 1, 2, 3]))
+    else:
+        kept.append(helper.make_attribute("n_targets", n_expected))
+
+    del node.attribute[:]
+    node.attribute.extend(kept)
+
 def save_to_onnx(model, filepath, initial_type, timestamp_str):
     try:
         # 🌟 1. จัดการ CatBoost (ใช้คำสั่งเซฟของตัวเอง + ผ่าตัดแก้บั๊ก ONNX)
         if 'CatBoost' in type(model).__name__:
             model.save_model(filepath, format="onnx")
             onnx_model = onnx.load(filepath)
-            
+        
             for node in onnx_model.graph.node:
-                # ซ่อม 1: โหนด Classifier
                 if node.op_type == 'TreeEnsembleClassifier':
-                    valid_attrs = []
-                    for attr in node.attribute:
-                        # 💥 เตะ attribute 'n_targets' ที่หลงเข้ามาผิดๆ ทิ้งไป รวมถึงล้าง labels เดิมด้วย
-                        if attr.name not in ['classlabels_strings', 'classlabels_int64s', 'n_targets']:
-                            valid_attrs.append(attr)
-                    
-                    del node.attribute[:]
-                    # ใส่ Labels ใหม่ที่ถูกต้อง
-                    valid_attrs.append(helper.make_attribute("classlabels_int64s", [0, 1, 2, 3]))
-                    node.attribute.extend(valid_attrs)
-                    
-                # ซ่อม 2: โหนด Regressor
+                    _fix_tree_node(node, 4, is_classifier=True)
                 elif node.op_type == 'TreeEnsembleRegressor':
-                    valid_attrs = []
-                    for attr in node.attribute:
-                        if attr.name != 'n_targets':
-                            valid_attrs.append(attr)
-                            
-                    del node.attribute[:]
-                    # กำหนดเป้าหมายสี (6 ค่า) ให้ถูกต้อง
-                    valid_attrs.append(helper.make_attribute("n_targets", 6))
-                    node.attribute.extend(valid_attrs)
-                        
-            # ฝังเวลา
+                    _fix_tree_node(node, 6, is_classifier=False)
+        
             meta = onnx_model.metadata_props.add()
             meta.key = "creation_time"
             meta.value = timestamp_str
             onnx_model.doc_string = f"Model trained and generated on: {timestamp_str}"
-            
+        
             onnx.save(onnx_model, filepath)
             return True
             
