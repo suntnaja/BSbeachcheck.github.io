@@ -1126,8 +1126,7 @@
             const predictedHsv = rgbToHsv(predictedRgb[0], predictedRgb[1], predictedRgb[2]);
 
             // 3. ค้นหารูปภาพจากฐานข้อมูล .csv (กลุ่ม label เดียวกัน และคล้าย >= 90%)
-            let matchedImage = null;
-            let bestSimilarity = 0;
+            let matchedImages = []; // เปลี่ยนมาใช้ Array เพื่อเก็บหลายรูป
 
             const sameLabelData = CSV_DATABASE.filter(item => item.label == predictedLabel);
 
@@ -1135,12 +1134,17 @@
                 const dbRgb = [parseFloat(item.R_mean), parseFloat(item.G_mean), parseFloat(item.B_mean)];
                 const similarity = calculateRgbSimilarity(predictedRgb, dbRgb);
 
-                // หาค่าที่คล้ายที่สุดและมากกว่าหรือเท่ากับ 90%
-                if (similarity >= 90 && similarity > bestSimilarity) {
-                    bestSimilarity = similarity;
-                    matchedImage = item.image_path;
+                // เก็บทุกรูปที่มีความแม่นยำตั้งแต่ 90% ขึ้นไป
+                if (similarity >= 90) {
+                    matchedImages.push({
+                        path: item.image_path,
+                        similarity: similarity
+                    });
                 }
             });
+
+            // เรียงลำดับความแม่นยำจากมากไปน้อย (รูปที่แม่นยำที่สุดจะอยู่บนสุด)
+            matchedImages.sort((a, b) => b.similarity - a.similarity);
 
             // 4. อัปเดตหน้า UI (ข้อความสถานะ)
             document.getElementById('resCondition').innerText = getLabelText(predictedLabel);
@@ -1167,17 +1171,72 @@
             const skyImgElement = document.getElementById('resSkyImage');
             const noImgElement = document.getElementById('resNoImage');
             const similarityEl = document.getElementById('resSimilarity');
+            const expandBtn = document.getElementById('expandBtn');
+            const previewContainer = document.querySelector('.image-preview-container');
 
-            if (matchedImage) {
-                skyImgElement.src = matchedImage;
-                skyImgElement.style.display = 'block';
+            // ซ่อนโครงสร้างรูปเดี่ยวแบบเก่าไว้ (แต่ใช้เป็นฐานส่งต่อข้อมูลให้ Lightbox)
+            if(skyImgElement) skyImgElement.style.display = 'none';
+            if(similarityEl) similarityEl.style.display = 'none';
+            if(expandBtn) expandBtn.style.display = 'none';
+
+            // ล้างรูปภาพที่เคยสร้างจากการพยากรณ์รอบก่อนหน้าออก
+            document.querySelectorAll('.dynamic-gallery-item').forEach(el => el.remove());
+
+            if (matchedImages.length > 0) {
                 noImgElement.style.display = 'none';
-                similarityEl.innerHTML = `<i class="fa-solid fa-check-double"></i> คล้ายกัน: ${bestSimilarity}%`;
-                similarityEl.style.display = 'block';
+                
+                // วนลูปสร้างรูปภาพและป้ายความแม่นยำตามจำนวนที่ค้นพบ
+                matchedImages.forEach((imgData, index) => {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'dynamic-gallery-item';
+                    wrapper.style.position = 'relative';
+                    
+                    // เว้นช่องว่างระหว่างรูปภาพ (ยกเว้นรูปล่างสุด)
+                    if (index < matchedImages.length - 1) {
+                        wrapper.style.marginBottom = '25px';
+                    }
+
+                    // สร้างป้ายบอกความแม่นยำของแต่ละรูป
+                    const badge = document.createElement('div');
+                    badge.className = 'similarity-badge';
+                    badge.innerHTML = `<i class="fa-solid fa-check-double"></i> ความแม่นยำ: ${imgData.similarity}%`;
+
+                    // สร้างกรอบรูปภาพ
+                    const img = document.createElement('img');
+                    img.src = imgData.path;
+                    img.alt = `ภาพจำลองท้องฟ้า ${index + 1}`;
+                    img.style.display = 'block';
+                    img.style.width = '100%';
+                    img.style.height = 'auto';
+                    img.style.maxHeight = '350px';
+                    img.style.objectFit = 'contain';
+                    img.style.cursor = 'zoom-in';
+
+                    // เมื่อกดคลิกที่รูปใหม่ ให้ทำงานสอดคล้องกับ Lightbox โค้ดเดิม
+                    img.onclick = function() {
+                        if (skyImgElement && similarityEl) {
+                            // อัปเดตข้อมูลใส่ช่องทางเดิมเพื่อส่งให้ Lightbox ดึงไปแสดง
+                            skyImgElement.setAttribute('src', imgData.path);
+                            similarityEl.innerHTML = `<i class="fa-solid fa-check-double"></i> คล้ายกัน: ${imgData.similarity}%`;
+                            similarityEl.style.display = 'block'; 
+                            
+                            // จำลองการคลิกเพื่อเปิด Lightbox
+                            skyImgElement.click(); 
+                            
+                            // ซ่อนคืนทันทีเพื่อไม่ให้โชว์ซ้ำบนหน้าจอปกติ
+                            similarityEl.style.display = 'none'; 
+                        }
+                    };
+
+                    wrapper.appendChild(badge);
+                    wrapper.appendChild(img);
+                    
+                    // แทรกรูปลงในกรอบ ก่อนป้ายแบนเนอร์ "ภาพถ่ายใกล้เคียงจากคลัง"
+                    const footerBadge = previewContainer.querySelector('.image-badge');
+                    previewContainer.insertBefore(wrapper, footerBadge);
+                });
             } else {
-                skyImgElement.style.display = 'none';
                 noImgElement.style.display = 'block';
-                similarityEl.style.display = 'none';
             }
 
             document.getElementById('placeholderState').style.display = 'none';
