@@ -13,6 +13,11 @@
             border-radius: 8px;
             cursor: pointer;
             transition: transform 0.2s;
+            object-fit: cover;
+            /* เพิ่ม fallback กรณีรูปโหลดไม่ขึ้น ให้มีกรอบหลอกๆ ไว้ */
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            min-height: 100px;
         }
         .image-preview:hover {
             transform: scale(1.1);
@@ -74,18 +79,18 @@
             </thead>
             <tbody id="tableBody">
                 <!-- ข้อมูลจะถูกเติมด้วย JavaScript -->
-                <tr><td colspan="9" class="text-center">กำลังโหลดข้อมูล...</td></tr>
+                <tr><td colspan="9" class="text-center">กำลังโหลดข้อมูล... หากค้างนานเกินไป โปรดตรวจสอบ Path ของโฟลเดอร์ <code>data</code> หรือเปิด Console (F12) เพื่อดู Error</td></tr>
             </tbody>
         </table>
     </div>
 </div>
 
 <!-- Modal สำหรับแสดงรูปภาพขนาดใหญ่ -->
-<div class="modal fade" id="Modal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-body text-center">
-        <img id="modal" src="" alt="ภาพขนาดใหญ่" class="img-fluid rounded">
+        <img id="modalImage" src="" alt="ภาพขนาดใหญ่" class="img-fluid rounded">
       </div>
     </div>
   </div>
@@ -96,52 +101,146 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
 
 <script>
-    // URL ของไฟล์ CSV (ถ้าคุณรันบน localhost อาจจะใช้ path สัมพัทธ์ เช่น 'data/model_db.csv')
-    // ถ้าขึ้น GitHub Pages ให้ใช้ URL สัมพัทธ์ เช่น './data/model_db.csv'
-    const CSV_URL = './data/model_db.csv'; 
+    // 🌟 1. การแก้ไข Path ของ CSV
+    // ใช้ './data/model_db.csv' แทน 'data/model_db.csv' เพื่อความชัวร์ในการอ้างอิงตำแหน่งปัจจุบันของ index.html
+    const CSV_URL = 'data/model_db.csv'; 
 
-    // ดึงข้อมูลและสร้างตาราง
     function loadData() {
         Papa.parse(CSV_URL, {
             download: true,
             header: true,
             skipEmptyLines: true,
             complete: function(results) {
-                renderTable(results.data);
+                if(results.data && results.data.length > 0) {
+                    renderTable(results.data);
+                } else {
+                    document.getElementById('tableBody').innerHTML = '<tr><td colspan="9" class="text-center text-warning">โหลดไฟล์ CSV สำเร็จ แต่ไม่มีข้อมูล (ไฟล์ว่างเปล่า)</td></tr>';
+                }
             },
             error: function(error) {
-                document.getElementById('tableBody').innerHTML = `<tr><td colspan="9" class="text-danger text-center">เกิดข้อผิดพลาดในการโหลดข้อมูล: ${error.message}</td></tr>`;
+                // แสดงข้อความ Error ลงตารางเพื่อให้เห็นชัดเจน
+                document.getElementById('tableBody').innerHTML = `<tr><td colspan="9" class="text-danger text-center">เกิดข้อผิดพลาดในการโหลดไฟล์ <code>${CSV_URL}</code><br>รายละเอียด: ${error.message}<br><small>(ตรวจสอบให้แน่ใจว่าคุณได้รัน Web Server หากเปิดจากเครื่องตัวเอง)</small></td></tr>`;
+                console.error("PapaParse Error:", error);
             }
         });
     }
 
-    // สร้างตารางจากข้อมูล JSON
     function renderTable(data) {
         const tbody = document.getElementById('tableBody');
         tbody.innerHTML = '';
 
-        if (data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" class="text-center">ไม่พบข้อมูลในระบบ</td></tr>';
-            return;
-        }
-
         data.forEach((row, index) => {
             const tr = document.createElement('tr');
             
-            // สร้าง URL ของรูปภาพ (ปรับตามโครงสร้างของคุณ)
-            const imgPath = row.image_path ? row.image_path : '';
+            // 🌟 2. การแก้ไข Path ของรูปภาพ
+            // สมมติว่าใน CSV เก็บคอลัมน์ image_path เป็น "2026-02-02T18:07.jpg" หรือ "images/2026-02-02T18:07.jpg"
+            // เราต้องแปลงให้เป็น Path ที่ index.html มองเห็น
             
-            // ฟังก์ชันสำหรับส่งค่าไปยัง Modal
-            const imageHtml = imgPath ? `<img src="${imgPath}" class="image-preview" onclick="showImage('${imgPath}')" alt="image">` : 'ไม่มีภาพ';
+            let originalPath = row.image_path ? row.image_path : '';
+            let displayPath = '';
+
+            if (originalPath) {
+                // ถ้าใน CSV ไม่มีคำว่า 'images/' นำหน้า ให้เติมเข้าไป
+                if (!originalPath.startsWith('images/')) {
+                     displayPath = `./images/${originalPath}`;
+                } else {
+                     // ถ้ามี 'images/' นำหน้าอยู่แล้ว ก็ใส่ './' เพิ่มไปข้างหน้าเพื่อความชัวร์
+                     displayPath = `./${originalPath}`;
+                }
+            }
+
+            // ถ้าไม่มี Path หรือโหลดรูปไม่ได้ ให้โชว์คำว่า 'Image Not Found' (ใช้ onerror)
+            const imageHtml = displayPath 
+                ? `<img src="${displayPath}" class="image-preview" onclick="showImage('${displayPath}')" alt="Sky Image" onerror="this.onerror=null; this.src=''; this.style.display='none'; this.insertAdjacentHTML('afterend', '<span class=\\'text-muted small\\'>ไม่พบรูปภาพ<br>(${displayPath})</span>');">` 
+                : '<span class="text-muted small">ไม่มีข้อมูลภาพ</span>';
 
             tr.innerHTML = `
                 <td>${imageHtml}</td>
                 <td>${row.timestamp || '-'}</td>
-                <td><small>${imgPath}</small></td>
+                <td><small class="text-break">${originalPath}</small></td>
                 <td><strong>${row.label || '-'}</strong></td>
-                <td>${row.R_mean}, ${row.G_mean},${row.B_mean}</td>
-                <td>${row.H_mean}, ${row.S_mean},${row.V_mean}</td>
+                <td>${row.R_mean || 0}, ${row.G_mean || 0}, ${row.B_mean || 0}</td>
+                <td>${row.H_mean || 0}, ${row.S_mean || 0}, ${row.V_mean || 0}</td>
                 <td>${row.env_temp || '-'}</td>
                 <td>${row.env_humidity || '-'}</td>
                 <td>
-                    <button class="btn btn-danger btn-sm"
+                    <button class="btn btn-danger btn-sm" onclick="deleteFile('${originalPath}', ${index})">
+                        ลบ
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function showImage(src) {
+        document.getElementById('modalImage').src = src;
+        const modal = new bootstrap.Modal(document.getElementById('imageModal'));
+        modal.show();
+    }
+
+    // ฟังก์ชันลบไฟล์ (โค้ดเดิม)
+    async function deleteFile(filePath, rowIndex) {
+        // ... (โค้ดส่วนนี้ยังเหมือนเดิม) ...
+        const token = document.getElementById('githubToken').value;
+        const repo = document.getElementById('repoDetails').value;
+
+        if (!token || !repo) {
+            alert("กรุณากรอก GitHub Token และ Repository (เช่น username/repo-name) ก่อนทำการลบ");
+            return;
+        }
+
+        // ต้องแปลง path สำหรับส่ง API ถ้าใน CSV ไม่ได้ใส่ 'images/' ไว้
+        let apiFilePath = filePath;
+        if(!apiFilePath.startsWith('images/')) {
+            apiFilePath = `images/${apiFilePath}`;
+        }
+
+        if (!confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบไฟล์: ${apiFilePath}? \n(การกระทำนี้จะลบไฟล์ออกจาก Repository จริงๆ)`)) {
+            return;
+        }
+
+        try {
+            const getUrl = `https://api.github.com/repos/${repo}/contents/${apiFilePath}`;
+            const getResponse = await fetch(getUrl, {
+                headers: { 'Authorization': `token ${token}` }
+            });
+
+            if (!getResponse.ok) {
+                throw new Error("ไม่พบไฟล์ใน Repository หรือ Token ไม่ถูกต้อง");
+            }
+            
+            const fileData = await getResponse.json();
+            const fileSha = fileData.sha;
+
+            const deleteResponse = await fetch(getUrl, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `token ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: `Delete image via Web UI: ${apiFilePath}`,
+                    sha: fileSha
+                })
+            });
+
+            if (deleteResponse.ok) {
+                alert("✅ ลบไฟล์สำเร็จ! (อาจต้องรอ GitHub Actions รันเพื่ออัปเดตระบบ)");
+                document.getElementById('tableBody').deleteRow(rowIndex);
+            } else {
+                const errorData = await deleteResponse.json();
+                throw new Error(errorData.message || "ไม่สามารถลบไฟล์ได้");
+            }
+
+        } catch (error) {
+            alert(`❌ เกิดข้อผิดพลาด: ${error.message}`);
+        }
+    }
+
+    // เรียกฟังก์ชันโหลดข้อมูลทันทีเมื่อเปิดหน้าเว็บ
+    document.addEventListener("DOMContentLoaded", loadData);
+
+</script>
+</body>
+</html>
