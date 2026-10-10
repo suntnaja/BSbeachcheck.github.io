@@ -829,9 +829,11 @@
             if (!src) return;
             lastFocus = document.activeElement;
             img.src = src;
+            /*
             $('lbOpen').href = src;
             $('lbDownload').href = src;
             $('lbDownload').setAttribute('download', src.split('/').pop().split('?')[0] || 'sky.jpg');
+            */
             const simEl = $('resSimilarity');
             $('lbSim').textContent = simEl && simEl.style.display !== 'none' ? simEl.textContent.trim() : '';
             $('lbSim').style.display = $('lbSim').textContent ? '' : 'none';
