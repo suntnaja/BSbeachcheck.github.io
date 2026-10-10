@@ -132,7 +132,7 @@
             const imgPath = row.image_path ? row.image_path : '';
             
             // ฟังก์ชันสำหรับส่งค่าไปยัง Modal
-            const imageHtml = imgPath ? `<img src="././${imgPath}" class="image-preview" onclick="showImage('${imgPath}')" alt="image">` : 'ไม่มีภาพ';
+            const imageHtml = imgPath ? `<img src="${imgPath}" class="image-preview" onclick="showImage('${imgPath}')" alt="image">` : 'ไม่มีภาพ';
 
             tr.innerHTML = `
                 <td>${imageHtml}</td>
