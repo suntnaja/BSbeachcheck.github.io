@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="th" data-theme="light">
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <title>Bangsaen Sky Predictor - พยากรณ์ท้องฟ้าและสภาพอากาศบางแสน</title>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script>
+        // ตั้งธีมก่อนเรนเดอร์ เพื่อไม่ให้หน้าจอกะพริบ
+        (function () {
+            try {
+                var saved = localStorage.getItem('bsp-theme');
+                var theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                document.documentElement.setAttribute('data-theme', theme);
+            } catch (e) {}
+        })();
+    </script>
+
+    <style>
+        /* ================= THEME TOKENS ================= */
+        :root, [data-theme="light"] {
+            --primary: #0077b6;
+            --primary-hover: #023e8a;
+            --accent: #00b4d8;
+            --accent-2: #48cae4;
+            --text-main: #0b2545;
+            --text-sub: #46627f;
+            --glass-bg: rgba(255, 255, 255, 0.50);
+            --glass-bg-strong: rgba(255, 255, 255, 0.72);
+            --glass-border: rgba(255, 255, 255, 0.85);
+            --glass-shadow: 0 20px 50px rgba(0, 90, 150, 0.22);
+            --input-bg: rgba(255, 255, 255, 0.65);
+            --input-border: rgba(0, 119, 182, 0.25);
+            --sky-1: #7fd3ff;
+            --sky-2: #bfeaff;
+            --sky-3: #f2fbff;
+            --cloud: rgba(255, 255, 255, 0.85);
+            --wave-1: rgba(0, 150, 199, 0.55);
+            --wave-2: rgba(72, 202, 228, 0.55);
+            --wave-3: rgba(255, 255, 255, 0.75);
+            --sand: #fbe9c3;
+            --reco-bg: rgba(224, 242, 254, 0.75);
+            --reco-text: #0c4a6e;
+            --celestial: #ffd166;
+            --celestial-glow: rgba(255, 209, 102, 0.65);
+            --stars: 0;
+        }
+        [data-theme="dark"] {
+            --primary: #38bdf8;
+            --primary-hover: #0ea5e9;
+            --accent: #22d3ee;
+            --accent-2: #60a5fa;
+            --text-main: #e6f1ff;
+            --text-sub: #9db6d3;
+            --glass-bg: rgba(14, 32, 66, 0.45);
+            --glass-bg-strong: rgba(18, 40, 80, 0.62);
+            --glass-border: rgba(140, 190, 255, 0.22);
+            --glass-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            --input-bg: rgba(10, 24, 52, 0.55);
+            --input-border: rgba(120, 180, 255, 0.28);
+            --sky-1: #050d24;
+            --sky-2: #0b1f4a;
+            --sky-3: #14407a;
+            --cloud: rgba(120, 160, 230, 0.16);
+            --wave-1: rgba(14, 90, 160, 0.55);
+            --wave-2: rgba(30, 120, 200, 0.45);
+            --wave-3: rgba(160, 210, 255, 0.28);
+            --sand: #2a3a5c;
+            --reco-bg: rgba(14, 60, 110, 0.55);
+            --reco-text: #bde6ff;
+            --celestial: #e8f0ff;
+            --celestial-glow: rgba(180, 210, 255, 0.45);
+            --stars: 1;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Prompt', sans-serif; }
+        html { scroll-behavior: smooth; }
+        body {
+            min-height: 100vh;
+            min-height: 100dvh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 28px 18px 120px;
+            color: var(--text-main);
+            background: linear-gradient(180deg, var(--sky-1) 0%, var(--sky-2) 55%, var(--sky-3) 100%);
+            background-attachment: fixed;
+            overflow-x: hidden;
+            transition: background 0.6s ease, color 0.4s ease;
+        }
+
+        /* ================= SKY & BEACH SCENE ================= */
+        .scene { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+
+        .celestial {
+            position: absolute; top: 9%; right: 10%;
+            width: 110px; height: 110px; border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, #fff 0%, var(--celestial) 60%);
+            box-shadow: 0 0 60px 25px var(--celestial-glow), 0 0 140px 60px var(--celestial-glow);
+            animation: floatY 7s ease-in-out infinite;
+            transition: background 0.6s ease, box-shadow 0.6s ease;
+        }
+        [data-theme="dark"] .celestial {
+            background: radial-gradient(circle at 35% 35%, #fff 0%, #dfe9ff 55%, #a9bde6 100%);
+            box-shadow: 0 0 40px 10px var(--celestial-glow);
+        }
+        [data-theme="dark"] .celestial::after {
+            content: ''; position: absolute; inset: 0; border-radius: 50%;
+            background:
+                radial-gradient(circle at 62% 30%, rgba(120,140,190,.35) 0 9px, transparent 10px),
+                radial-gradient(circle at 35% 62%, rgba(120,140,190,.3) 0 13px, transparent 14px),
+                radial-gradient(circle at 70% 70%, rgba(120,140,190,.28) 0 7px, transparent 8px);
+        }
+
+        .stars { position: absolute; inset: 0; opacity: 0; transition: opacity 0.8s ease; }
+        [data-theme="dark"] .stars { opacity: 1; }
+        .star {
+            position: absolute; width: 3px; height: 3px; border-radius: 50%;
+            background: #fff; box-shadow: 0 0 6px #fff;
+            animation: twinkle 3s ease-in-out infinite;
+        }
+
+        .cloud {
+            position: absolute; background: var(--cloud); border-radius: 100px;
+            filter: blur(1px); animation: drift linear infinite;
+            transition: background 0.6s ease;
+        }
+        .cloud::before, .cloud::after { content: ''; position: absolute; background: inherit; border-radius: 50%; }
+        .cloud::before { width: 55%; height: 160%; top: -70%; left: 14%; }
+        .cloud::after  { width: 40%; height: 130%; top: -45%; right: 14%; }
+        .cloud.c1 { width: 190px; height: 50px; top: 14%; left: -220px; animation-duration: 70s; }
+        .cloud.c2 { width: 130px; height: 36px; top: 28%; left: -160px; animation-duration: 95s; animation-delay: -30s; opacity: .8; }
+        .cloud.c3 { width: 240px; height: 62px; top: 6%;  left: -260px; animation-duration: 120s; animation-delay: -70s; opacity: .7; }
+
+        .beach { position: absolute; left: 0; right: 0; bottom: 0; height: 150px; }
+        .sand {
+            position: absolute; left: 0; right: 0; bottom: 0; height: 38px;
+            background: linear-gradient(180deg, transparent, var(--sand));
+            transition: background 0.6s ease;
+        }
+        .wave { position: absolute; left: 0; bottom: 0; width: 200%; height: 120px; }
+        .wave svg { width: 100%; height: 100%; display: block; }
+        .wave.w1 { animation: waveMove 16s linear infinite; bottom: 18px; }
+        .wave.w2 { animation: waveMove 24s linear infinite reverse; bottom: 8px; }
+        .wave.w3 { animation: waveMove 11s linear infinite; bottom: 0; }
+        .wave.w1 path { fill: var(--wave-1); }
+        .wave.w2 path { fill: var(--wave-2); }
+        .wave.w3 path { fill: var(--wave-3); }
+
+        @keyframes drift { from { transform: translateX(0); } to { transform: translateX(calc(100vw + 500px)); } }
+        @keyframes floatY { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+        @keyframes twinkle { 0%,100% { opacity: .25; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.3); } }
+        @keyframes waveMove { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+        /* ================= THEME TOGGLE ================= */
+        .theme-toggle {
+            position: fixed; top: 18px; right: 18px; z-index: 20;
+            width: 62px; height: 34px; border-radius: 40px; cursor: pointer;
+            background: var(--glass-bg-strong); border: 1px solid var(--glass-border);
+            backdrop-filter: blur(16px) saturate(160%); -webkit-backdrop-filter: blur(16px) saturate(160%);
+            box-shadow: var(--glass-shadow); padding: 0;
+            transition: transform .25s ease;
+        }
+        .theme-toggle:hover { transform: scale(1.07); }
+        .theme-toggle:active { transform: scale(.95); }
+        .theme-toggle .knob {
+            position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%;
+            background: linear-gradient(135deg, #ffd166, #ffb703); color: #7a4a00;
+            display: grid; place-items: center; font-size: .8rem;
+            transition: transform .45s cubic-bezier(.68,-.55,.27,1.55), background .4s ease;
+        }
+        [data-theme="dark"] .theme-toggle .knob {
+            transform: translateX(28px);
+            background: linear-gradient(135deg, #cfe0ff, #8ea9e8); color: #1b2a55;
+        }
+        .theme-toggle .ico-moon { display: none; }
+        [data-theme="dark"] .theme-toggle .ico-sun { display: none; }
+        [data-theme="dark"] .theme-toggle .ico-moon { display: inline; }
+
+        /* ================= GLASS CONTAINER ================= */
+        .container {
+            position: relative; z-index: 2; width: 100%; max-width: 980px;
+            display: grid; grid-template-columns: 1fr; gap: 22px;
+        }
+        @media (min-width: 820px) { .container { grid-template-columns: 360px 1fr; } }
+
+        .glass {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 26px;
+            backdrop-filter: blur(22px) saturate(170%);
+            -webkit-backdrop-filter: blur(22px) saturate(170%);
+            box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255,255,255,.35);
+            position: relative; overflow: hidden;
+            transform-style: preserve-3d;
+            transition: transform .25s ease, box-shadow .3s ease, background .5s ease, border-color .5s ease;
+            animation: riseIn .8s cubic-bezier(.2,.8,.2,1) both;
+        }
+        .glass::before {
+            content: ''; position: absolute; inset: 0; pointer-events: none;
+            background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 0%), rgba(255,255,255,.28), transparent 55%);
+            opacity: 0; transition: opacity .3s ease;
+        }
+        .glass:hover::before { opacity: 1; }
+        .display-panel.glass { animation-delay: .12s; }
+        @keyframes riseIn { from { opacity: 0; transform: translateY(30px) scale(.97); } to { opacity: 1; transform: none; } }
+
+        /* ================= CONTROL PANEL (INPUT) ================= */
+        .control-panel { padding: 30px 26px; display: flex; flex-direction: column; justify-content: space-between; }
+        .brand { display: flex; align-items: center; gap: 14px; margin-bottom: 28px; color: var(--primary); }
+        .brand .logo {
+            width: 54px; height: 54px; border-radius: 18px; display: grid; place-items: center;
+            background: linear-gradient(135deg, var(--accent), var(--primary)); color: #fff; font-size: 1.5rem;
+            box-shadow: 0 8px 20px rgba(0,119,182,.35);
+            animation: floatY 4.5s ease-in-out infinite;
+        }
+        .brand h1 { font-size: 1.25rem; font-weight: 700; line-height: 1.2; color: var(--text-main); }
+        .brand h1 span { background: linear-gradient(90deg, var(--primary), var(--accent)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-size: .9rem; font-weight: 500; margin-bottom: 8px; color: var(--text-sub); }
+        .form-control {
+            width: 100%; padding: 13px 15px; border: 1.5px solid var(--input-border); border-radius: 14px;
+            font-size: .95rem; outline: none; color: var(--text-main); background: var(--input-bg);
+            backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+            transition: all .3s ease;
+        }
+        .form-control:hover { transform: translateY(-1px); }
+        .form-control:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(0,180,216,.22), 0 6px 18px rgba(0,180,216,.18); transform: translateY(-2px); }
+        select.form-control option { color: #0b2545; background: #fff; }
+        [data-theme="dark"] input[type="datetime-local"] { color-scheme: dark; }
+
+        /* ================= BUTTON ================= */
+        .btn-submit {
+            position: relative; overflow: hidden; width: 100%; padding: 15px; border: none; border-radius: 16px;
+            font-size: 1rem; font-weight: 600; color: #fff; cursor: pointer;
+            background: linear-gradient(120deg, var(--primary), var(--accent), var(--primary));
+            background-size: 200% 100%;
+            display: flex; justify-content: center; align-items: center; gap: 9px;
+            box-shadow: 0 10px 25px rgba(0,119,182,.4);
+            transition: transform .25s ease, box-shadow .25s ease, background-position .6s ease;
+        }
+        .btn-submit::after {
+            content: ''; position: absolute; top: 0; left: -80%; width: 50%; height: 100%;
+            background: linear-gradient(100deg, transparent, rgba(255,255,255,.55), transparent);
+            transform: skewX(-20deg); animation: shine 3.2s ease-in-out infinite;
+        }
+        @keyframes shine { 0%,55% { left: -80%; } 100% { left: 150%; } }
+        .btn-submit:hover { transform: translateY(-3px) scale(1.015); background-position: 100% 0; box-shadow: 0 16px 34px rgba(0,119,182,.5); }
+        .btn-submit:active { transform: translateY(0) scale(.98); }
+        .btn-submit:disabled { background: #7b8ba0; box-shadow: none; cursor: not-allowed; transform: none; }
+        .btn-submit:disabled::after { display: none; }
+        .btn-submit i { transition: transform .4s ease; }
+        .btn-submit:hover:not(:disabled) i { transform: rotate(20deg) scale(1.2); }
+        .ripple {
+            position: absolute; border-radius: 50%; background: rgba(255,255,255,.55);
+            transform: scale(0); animation: ripple .65s ease-out forwards; pointer-events: none;
+        }
+        @keyframes ripple { to { transform: scale(4); opacity: 0; } }
+
+        #metadataDisplay { font-size: .8rem; color: var(--primary); text-align: center; margin-top: 12px; font-weight: 500; }
+        .foot-note { font-size: .75rem; color: var(--text-sub); text-align: center; margin-top: 20px; }
+
+        /* ================= OUTPUT DASHBOARD ================= */
+        .display-panel { padding: 30px; display: flex; flex-direction: column; justify-content: center; min-height: 420px; }
+        .placeholder-state { text-align: center; color: var(--text-sub); padding: 40px 20px; }
+        .placeholder-state i {
+            font-size: 4.2rem; margin-bottom: 18px; display: inline-block;
+            background: linear-gradient(135deg, #ffd166, var(--accent)); -webkit-background-clip: text; background-clip: text; color: transparent;
+            animation: floatY 4s ease-in-out infinite;
+        }
+        .placeholder-state h3 { color: var(--text-main); margin-bottom: 6px; }
+
+        .results-state { display: none; }
+        .results-state > * { animation: popIn .6s cubic-bezier(.2,.8,.2,1) both; }
+        .results-state > *:nth-child(1) { animation-delay: .00s; }
+        .results-state > *:nth-child(2) { animation-delay: .10s; }
+        .results-state > *:nth-child(3) { animation-delay: .22s; }
+        @keyframes popIn { from { opacity: 0; transform: translateY(18px) scale(.97); } to { opacity: 1; transform: none; } }
+
+        .results-header { border-bottom: 1.5px solid var(--glass-border); padding-bottom: 15px; margin-bottom: 20px; }
+        .results-header h2 { font-size: 1.35rem; color: var(--primary); }
+
+        .output-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        @media (max-width: 560px) { .output-grid { grid-template-columns: 1fr; } }
+        .info-card {
+            background: var(--glass-bg-strong); border-radius: 18px; padding: 16px; border: 1px solid var(--glass-border);
+            transition: transform .3s ease, box-shadow .3s ease;
+        }
+        .info-card:hover { transform: translateY(-5px); box-shadow: 0 14px 28px rgba(0,119,182,.2); }
+        .info-card .title { font-size: .8rem; color: var(--text-sub); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+        .info-card .title i { color: var(--accent); }
+        .info-card .value { font-size: 1.1rem; font-weight: 600; }
+        .color-indicator { display: flex; align-items: center; gap: 12px; margin-top: 5px; }
+        .color-badge {
+            width: 40px; height: 40px; border-radius: 50%; border: 3px solid #fff; flex-shrink: 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,.25); transition: background-color .6s ease, transform .4s ease;
+        }
+        .info-card:hover .color-badge { transform: scale(1.15) rotate(12deg); }
+
+        .image-preview-container {
+            margin-bottom: 20px; position: relative; border-radius: 20px; overflow: hidden;
+            box-shadow: 0 10px 28px rgba(0,0,0,.18); background: var(--glass-bg-strong); text-align: center;
+            border: 1px solid var(--glass-border);
+        }
+        .image-preview-container img { width: 100%; height: auto; max-height: 350px; object-fit: contain; display: none; transition: transform .6s ease; }
+        .image-preview-container:hover img { transform: scale(1.04); }
+        .no-image-msg { display: none; padding: 60px 20px; color: var(--text-sub); font-size: .95rem; }
+        .image-badge {
+            position: absolute; bottom: 12px; right: 12px; background: rgba(0,0,0,.55); color: #fff;
+            padding: 5px 12px; border-radius: 20px; font-size: .75rem; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+        }
+        .similarity-badge {
+            position: absolute; top: 12px; right: 12px; z-index: 2; color: #fff; font-size: .8rem; font-weight: 700;
+            padding: 5px 12px; border-radius: 20px; background: linear-gradient(120deg, var(--accent), var(--primary));
+            box-shadow: 0 4px 12px rgba(0,0,0,.25); animation: pulse 2.4s ease-in-out infinite;
+        }
+        @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(0,180,216,.55); } 50% { box-shadow: 0 0 0 10px rgba(0,180,216,0); } }
+
+        .recommendation-box { background: var(--reco-bg); border-left: 4px solid var(--accent); padding: 15px; border-radius: 0 14px 14px 0; }
+        .recommendation-box h4 { font-size: .9rem; color: var(--primary); margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+        .recommendation-box p { font-size: .95rem; color: var(--reco-text); }
+
+        /* ================= RESPONSIVE ================= */
+        @media (max-width: 819px) {
+            body { align-items: flex-start; padding-top: 70px; }
+            .celestial { width: 80px; height: 80px; top: 5%; right: 6%; }
+        }
+        @media (max-width: 480px) {
+            body { padding: 70px 12px 110px; }
+            .control-panel, .display-panel { padding: 22px 18px; }
+            .glass { border-radius: 22px; }
+            .brand h1 { font-size: 1.1rem; }
+            .theme-toggle { top: 12px; right: 12px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Sky & Beach background scene -->
+<div class="scene" aria-hidden="true">
+    <div class="stars" id="stars"></div>
+    <div class="celestial"></div>
+    <div class="cloud c1"></div>
+    <div class="cloud c2"></div>
+    <div class="cloud c3"></div>
+    <div class="beach">
+        <div class="wave w1"><svg viewBox="0 0 1200 120" preserveAspectRatio="none"><path d="M0,60 C150,20 350,100 600,60 C850,20 1050,100 1200,60 L1200,120 L0,120 Z"/></svg></div>
+        <div class="wave w2"><svg viewBox="0 0 1200 120" preserveAspectRatio="none"><path d="M0,70 C200,110 400,30 600,70 C800,110 1000,30 1200,70 L1200,120 L0,120 Z"/></svg></div>
+        <div class="wave w3"><svg viewBox="0 0 1200 120" preserveAspectRatio="none"><path d="M0,85 C150,60 350,110 600,85 C850,60 1050,110 1200,85 L1200,120 L0,120 Z"/></svg></div>
+        <div class="sand"></div>
+    </div>
+</div>
+
+<button class="theme-toggle" id="themeToggle" type="button" aria-label="สลับโหมดสว่าง/มืด" title="สลับโหมดสว่าง/มืด">
+    <span class="knob"><i class="fa-solid fa-sun ico-sun"></i><i class="fa-solid fa-moon ico-moon"></i></span>
+</button>
+
+<div class="container">
+    <div class="control-panel glass" data-tilt>
+        <div>
+            <div class="brand">
+                <div class="logo"><i class="fa-solid fa-umbrella-beach"></i></div>
+                <h1><span>Bangsaen Sky</span><br>Predictor</h1>
+            </div>
+            <form id="predictForm" onsubmit="handlePredictJS(event)">
+                <div class="form-group">
+                    <label for="datetimeInput"><i class="fa-regular fa-calendar-days"></i> เลือกวันและเวลาที่ต้องการพยากรณ์</label>
+                    <input type="datetime-local" id="datetimeInput" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="modelSelect"><i class="fa-solid fa-brain"></i> เลือกโมเดลพยากรณ์</label>
+                    <select id="modelSelect" class="form-control">
+                        <option value="RandomForest">RandomForest</option>
+                        <option value="CatBoost">CatBoost</option>
+                        <option value="XGBoost">XGBoost</option>
+                        <option value="LightGBM">LightGBM</option>
+                        <option value="GradientBoosting">GradientBoosting</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn-submit" id="submitBtn">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> พยากรณ์ท้องฟ้า
+                </button>
+            </form>
+        </div>
+
+        <div id="metadataDisplay"></div>
+
+        <div class="foot-note">
+            ดึงข้อมูลสภาพอากาศเรียลไทม์ และพยากรณ์ด้วย ML Model
+        </div>
+    </div>
+
+    <div class="display-panel glass" data-tilt>
+        <div id="placeholderState" class="placeholder-state">
+            <i class="fa-solid fa-cloud-sun"></i>
+            <h3>รอรับผลการพยากรณ์</h3>
+            <p>กรุณาเลือกวันและเวลาจากเมนูด้านซ้าย แล้วกด "พยากรณ์ท้องฟ้า"</p>
+        </div>
+
+        <div id="resultsState" class="results-state">
+            <div class="results-header">
+                <h2><i class="fa-solid fa-square-poll-vertical"></i> ผลการพยากรณ์ (OUTPUT)</h2>
+            </div>
+            <div class="output-grid">
+                <div class="info-card">
+                    <div class="title"><i class="fa-solid fa-cloud-bolt"></i> คาดการณ์สภาพฟ้า</div>
+                    <div class="value" id="resCondition" style="font-size: 1rem; line-height: 1.4;">-</div>
+                    <div style="font-size: 0.75rem; color: var(--text-sub); margin-top: 8px;" id="resEnvDetails"></div>
+                </div>
+                <div class="info-card">
+                    <div class="title"><i class="fa-solid fa-palette"></i> คาดเดาเฉดสี (Solid Color)</div>
+                    <div class="color-indicator">
+                        <div class="color-badge" id="resColorBadge"></div>
+                        <div>
+                            <div class="value" id="resRgbText" style="font-size: 0.9rem;">-</div>
+                            <div id="resHsvText" style="font-size: 0.8rem; color: var(--text-sub); font-weight: 500;">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="image-preview-container">
+                <div class="similarity-badge" id="resSimilarity"><i class="fa-solid fa-check-double"></i> ความแม่นยำ: -%</div>
+                <img id="resSkyImage" src="" alt="ภาพจำลองท้องฟ้า">
+                <div id="resNoImage" class="no-image-msg"><i class="fa-solid fa-image fa-2x" style="display:block;margin-bottom:10px;"></i>ยังไม่มีรูปที่ใกล้เคียง</div>
+                <div class="image-badge"><i class="fa-solid fa-images"></i> ภาพถ่ายใกล้เคียงจากคลัง</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* ================= UI HELPERS (theme / motion) ================= */
+    (function () {
+        // Theme toggle
+        const root = document.documentElement;
+        document.getElementById('themeToggle').addEventListener('click', function () {
+            const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+            root.setAttribute('data-theme', next);
+            try { localStorage.setItem('bsp-theme', next); } catch (e) {}
+        });
+
+        // Stars for dark theme
+        const starsEl = document.getElementById('stars');
+        for (let i = 0; i < 70; i++) {
+            const s = document.createElement('span');
+            s.className = 'star';
+            s.style.left = Math.random() * 100 + '%';
+            s.style.top = Math.random() * 65 + '%';
+            s.style.animationDelay = (Math.random() * 3).toFixed(2) + 's';
+            s.style.animationDuration = (2 + Math.random() * 3).toFixed(2) + 's';
+            const size = 1 + Math.random() * 2.5;
+            s.style.width = s.style.height = size + 'px';
+            starsEl.appendChild(s);
+        }
+
+        // Card tilt + spotlight glow (desktop pointer only)
+        const canHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+        document.querySelectorAll('[data-tilt]').forEach(function (card) {
+            card.addEventListener('mousemove', function (e) {
+                const r = card.getBoundingClientRect();
+                const x = e.clientX - r.left, y = e.clientY - r.top;
+                card.style.setProperty('--mx', x + 'px');
+                card.style.setProperty('--my', y + 'px');
+                if (canHover) {
+                    const rx = ((y / r.height) - 0.5) * -4;
+                    const ry = ((x / r.width) - 0.5) * 4;
+                    card.style.transform = 'perspective(1000px) rotateX(' + rx + 'deg) rotateY(' + ry + 'deg) translateY(-2px)';
+                }
+            });
+            card.addEventListener('mouseleave', function () { card.style.transform = ''; });
+        });
+
+        // Button ripple
+        const btn = document.getElementById('submitBtn');
+        btn.addEventListener('pointerdown', function (e) {
+            const r = btn.getBoundingClientRect();
+            const size = Math.max(r.width, r.height);
+            const d = document.createElement('span');
+            d.className = 'ripple';
+            d.style.width = d.style.height = size + 'px';
+            d.style.left = (e.clientX - r.left - size / 2) + 'px';
+            d.style.top = (e.clientY - r.top - size / 2) + 'px';
+            btn.appendChild(d);
+            setTimeout(function () { d.remove(); }, 700);
+        });
+    })();
+
+    // เล่นแอนิเมชันผลลัพธ์ซ้ำทุกครั้งที่พยากรณ์ใหม่
+    function replayResultAnimation() {
+        const el = document.getElementById('resultsState');
+        el.querySelectorAll(':scope > *').forEach(function (child) {
+            child.style.animation = 'none';
+            void child.offsetWidth;
+            child.style.animation = '';
+        });
+    }
+
+    /* ================= ORIGINAL LOGIC (unchanged) ================= */
+    let CSV_DATABASE = [];
+    const TMD_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjYyYTlhMjU0YmI0NzIwMWM3ODM0ODZiODg1MGViOTI2NDQ1ZjZhYWY0ZTJiOTgyOWZmN2MwMjY4ZjUxMTZhNGY1Yzk2ZTE3NDJmMWQ1MjcwIn0.eyJhdWQiOiIyIiwianRpIjoiNjJhOWEyNTRiYjQ3MjAxYzc4MzQ4NmI4ODUwZWI5MjY0NDVmNmFhZjRlMmI5ODI5ZmY3YzAyNjhmNTExNmE0ZjVjOTZlMTc0MmYxZDUyNzAiLCJpYXQiOjE3OTAwNjQyNjgsIm5iZiI6MTc5MDA2NDI2OCwiZXhwIjoxODIxNjAwMjY4LCJzdWIiOiI1OTI1Iiwic2NvcGVzIjpbXX0.RNxb1jLEJFUtn744x1bz_Wmf5CEvmqpfZZVm3ZgUlvVWgqEMj5npm7nU6mK6efegMam6fpvTYonvsory4iPsEjqJUhUYsFmXU0t_L-6xcso4GXxp8sMj-Ilogx7nHLS770zRkKbeh7jF7JcCBADrbv8ixhbsWPmlz7cj0PhwTcmnI_HnevnrmineZJ16ALnpvteXUxjJ3vvSp8Y_9uVQ9L3pDqAi2QKoz0Ts0kzDPJA0I3nprOCOMEBm-34pdTv-bDjo0kOERqsMIAB5bGPLWjz_ErGgYu80nd4escs-GIyj1o0kGq8ASdj6keJPdvMA_KrE3WW1nM_FhRlg-oyDmCLxDxqdTtV3GFjfl4Ptfy5aU3EWEU2cbeTcrRo_UyjaXBsjbhiom6DZjpH8HdTrNiPG8HI4eT75_Ay0MnOe8XMePu039ccOI5nUduXZzt1svqsQKTt5YKS1hEK89xamkGiedMWRRvwtC9GWGf7S3pyKs9f6saNClsOnt6eOvl_MQh2u-m4AcK6AoZu6whuibjkw6v_8CsVe7qr0-vSohVIxOC61Ox5-Tjqdfi4PIC_v1NRQOulPWhe2f4Zjb6ODf7jb5hCO8T60kadzkHaZLqUJM_DMZrVES1c5nZVz8UQiCFTMQiKIlGBQLhvFYWt8-qowLO3eYkqIgJ9zvRAksNU";
+
+    // อ่านและแปลงไฟล์ model_db.csv เป็น JSON object (รันเมื่อโหลดหน้าเว็บ)
+    window.onload = async function() {
+        const now = new Date();
+
+        // จัดการเวลาเริ่มต้นให้อยู่ในช่วง 06:00 - 18:59 เสมอ
+        let currentHour = now.getHours();
+        if (currentHour < 6) {
+            now.setHours(6, 0, 0, 0); // ถ้าเปิดเว็บตอนดึก-เช้ามืด ให้ปัดเป็น 06:00 น.
+        } else if (currentHour >= 19) {
+            now.setHours(18, 59, 0, 0); // ถ้าเปิดเว็บตอนค่ำ ให้ปัดเป็น 18:59 น.
+        }
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+
+        const datetimeInput = document.getElementById('datetimeInput');
+        datetimeInput.value = now.toISOString().slice(0, 16);
+
+        // ดักจับเมื่อผู้ใช้กดเปลี่ยนเวลาในปฏิทิน
+        datetimeInput.addEventListener('change', function(e) {
+            if (!this.value) return;
+            const selectedDate = new Date(this.value);
+            const hour = selectedDate.getHours();
+
+            // ถ้าเลือกเวลานอกช่วง 06:00 - 18:59
+            if (hour < 6 || hour >= 19) {
+                alert("สามารถพยากรณ์ได้เฉพาะช่วงเวลากลางวัน (06:00 น. - 18:59 น.) เท่านั้นครับ");
+                // บังคับเปลี่ยนเวลากลับมาเป็น 06:00 น. ของวันนั้น
+                selectedDate.setHours(6, 0, 0, 0);
+                const offset = selectedDate.getTimezoneOffset() * 60000;
+                this.value = (new Date(selectedDate - offset)).toISOString().slice(0,16);
+            }
+        });
+
+        try {
+            const response = await fetch('./backend/data/model_db.csv');
+            if (!response.ok) throw new Error('ไม่สามารถโหลด model_db.csv ได้');
+            const csvText = await response.text();
+            CSV_DATABASE = parseCSV(csvText);
+            console.log('โหลดฐานข้อมูล CSV สำเร็จ:', CSV_DATABASE.length, 'รายการ');
+        } catch (error) {
+            console.error('Error loading database:', error);
+        }
+    };
+
+    function parseCSV(str) {
+        const lines = str.trim().split('\n');
+        const headers = lines[0].split(',').map(h => h.trim());
+        return lines.slice(1).map(line => {
+            const data = line.split(',');
+            const obj = {};
+            headers.forEach((header, index) => {
+                obj[header] = data[index] ? data[index].trim() : null;
+            });
+            return obj;
+        });
+    }
+
+    // 1. ดึงข้อมูลสภาพอากาศจาก TMD API (ปรับแต่งการเรียกใช้แบบเจาะจงเวลา /at)
+    async function fetchWeatherTMD(datetimeStr) {
+        const proxyUrl = "https://tmd-proxy.sunt8346.workers.dev";
+        const lat = 13.28;
+        const lon = 100.91;
+
+        // แยกวันที่และชั่วโมงออกจากรูปแบบ YYYY-MM-DDTHH:mm
+        const datePart = datetimeStr.split('T')[0];
+        const hourPart = parseInt(datetimeStr.split('T')[1].split(':')[0], 10);
+
+        // ใช้ endpoint /at เพื่อระบุเวลาที่ต้องการแบบเจาะจง และใช้ duration=1 เพื่อขอข้อมูลจุดเดียว
+        const hourlyUrl = `${proxyUrl}/nwpapi/v1/forecast/location/hourly/at?lat=${lat}&lon=${lon}&fields=tc,rh,rain,cloudlow,cloudmed,cloudhigh&date=${datePart}&hour=${hourPart}&duration=1`;
+
+        // สำหรับรายวัน ไม่ต้องระบุชั่วโมง (hour)
+        const dailyUrl = `${proxyUrl}/nwpapi/v1/forecast/location/daily/at?lat=${lat}&lon=${lon}&fields=swdown&date=${datePart}&duration=1`;
+
+        const fetchOptions = {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${TMD_TOKEN}`,
+                'Accept': 'application/json'
+            }
+        };
+
+        const [hourlyResponse, dailyResponse] = await Promise.all([
+            fetch(hourlyUrl, fetchOptions),
+            fetch(dailyUrl, fetchOptions)
+        ]);
+
+        if (!hourlyResponse.ok || !dailyResponse.ok) {
+            throw new Error(`TMD API Proxy Error: Hourly(${hourlyResponse.status}), Daily(${dailyResponse.status})`);
+        }
+
+        const hourlyData = await hourlyResponse.json();
+        const dailyData = await dailyResponse.json();
+
+        const h_forecasts = hourlyData.WeatherForecasts?.[0]?.forecasts || [];
+        const d_forecasts = dailyData.WeatherForecasts?.[0]?.forecasts || [];
+
+        if (h_forecasts.length === 0) {
+            console.error("TMD API Response (Hourly):", hourlyData);
+            throw new Error("ไม่พบข้อมูลพยากรณ์จาก TMD API สำหรับช่วงเวลานี้ (อาจเลือกเวลาในอดีตหรือไกลเกินไป)");
+        }
+
+        // เนื่องจากเราระบุเวลาไปแล้ว ข้อมูลที่ได้กลับมาใน Array จะเป็นของเวลานั้นโดยตรง
+        const h_data = h_forecasts[0]?.data !== undefined ? h_forecasts[0].data : h_forecasts[0];
+        const d_data = (d_forecasts[0]?.data !== undefined ? d_forecasts[0].data : d_forecasts[0]) || {};
+
+        const temp = h_data.tc ?? 30;
+        const humidity = h_data.rh ?? 70;
+        const precip = h_data.rain ?? 0;
+        const solarradiation = d_data.swdown ?? 500;
+
+        const cl = h_data.cloudlow ?? 0;
+        const cm = h_data.cloudmed ?? 0;
+        const ch = h_data.cloudhigh ?? 0;
+        const cloudcover = (cl + cm + ch) / 3 ?? 20;
+
+        let visibility = 10;
+        if (precip > 0) {
+            visibility = Math.max(1, 10 - (precip * 1.5));
+        } else if (humidity > 80) {
+            visibility = Math.max(3, 10 - ((humidity - 80) * 0.2));
+        }
+
+        return {
+            temp: temp,
+            humidity: humidity,
+            precip: precip,
+            solarradiation: solarradiation,
+            cloudcover: cloudcover,
+            visibility: parseFloat(visibility.toFixed(1))
+        };
+    }
+
+    // คำนวณความคล้ายคลึงของค่าสี (เปอร์เซ็นต์)
+    function calculateRgbSimilarity(rgb1, rgb2) {
+        const distance = Math.sqrt(
+            Math.pow(rgb1[0] - rgb2[0], 2) +
+            Math.pow(rgb1[1] - rgb2[1], 2) +
+            Math.pow(rgb1[2] - rgb2[2], 2)
+        );
+        const maxDistance = Math.sqrt(Math.pow(255,2) * 3); // 441.67
+        const similarity = ((1 - (distance / maxDistance)) * 100).toFixed(2);
+        return parseFloat(similarity);
+    }
+
+    // แปลง RGB เป็น HSV
+    function rgbToHsv(r, g, b) {
+        r /= 255, g /= 255, b /= 255;
+        let max = Math.max(r, g, b), min = Math.min(r, g, b);
+        let h, s, v = max;
+        let d = max - min;
+        s = max == 0 ? 0 : d / max;
+        if (max == min) {
+            h = 0;
+        } else {
+            switch (max) {
+                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                case g: h = (b - r) / d + 2; break;
+                case b: h = (r - g) / d + 4; break;
+            }
+            h /= 6;
+        }
+        return [Math.round(h * 360), Math.round(s * 100), Math.round(v * 100)];
+    }
+
+    // แปลงผล Label ตามเงื่อนไข
+    function getLabelText(label) {
+        const labels = {
+            0: "ฟ้าโปร่ง (ท้องฟ้าที่โล่งสว่าง เห็นแสงอาทิตย์ชัดเจน)",
+            1: "ฟ้ามีเมฆ (ฟ้าท้องที่มีเมฆปานกลางถึงมากจับกลุ่มกัน แต่ยังมีแสงแจ่มใส)",
+            2: "ฟ้าหม่น (ฟ้าที่เมฆหรือหมอกกระจายเต็มท้องฟ้าจนไม่สามารถมองเห็นแสงแดด)",
+            3: "ฟ้ามืด (ท้องฟ้ามืดครึ้มจนสุ่มเสี่ยงต่อการเกิดฝนตกและพายุ)"
+        };
+        return labels[label] || "ไม่ทราบสถานะ";
+    }
+
+    // ประมวลผลเมื่อกดปุ่ม
+    async function handlePredictJS(e) {
+        e.preventDefault();
+
+        const submitBtn = document.getElementById('submitBtn');
+        const rawDatetime = document.getElementById('datetimeInput').value;
+
+        const checkHour = new Date(rawDatetime).getHours();
+        if (checkHour < 6 || checkHour >= 19) {
+            alert("กรุณาเลือกเวลาให้อยู่ในช่วง 06:00 น. - 18:59 น. เท่านั้น");
+            return; // หยุดการทำงานทันทีหากเวลาผิดพลาด
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> กำลังเชื่อมต่อ API และประมวลผล...';
+
+        try {
+            // 1. ดึงข้อมูลสภาพอากาศจาก TMD API
+            const envData = await fetchWeatherTMD(rawDatetime);
+
+            const inputFeatures = Float32Array.from([
+                envData.temp,
+                envData.humidity,
+                envData.precip,
+                envData.cloudcover,
+                envData.visibility,
+                envData.solarradiation
+            ]);
+
+            const tensor = new ort.Tensor('float32', inputFeatures, [1, 6]);
+            const selectedModel = document.getElementById('modelSelect').value;
+
+            // แสดงสถานะว่ากำลังใช้โมเดลอะไร
+            document.getElementById('metadataDisplay').innerHTML = `<i class="fa-solid fa-circle-check"></i> กำลังใช้งานโมเดล: ${selectedModel}`;
+
+            // ป้องกันเบราว์เซอร์จำแคช (เพื่อให้ดึงไฟล์ล่าสุดเสมอ)
+            const cacheBuster = Date.now();
+
+            // ================= 1. รันโมเดล Classifier (พยากรณ์สภาพฟ้า) =================
+            const classifierPath = `./backend/data/${selectedModel}_Classifier.onnx?v=${cacheBuster}`;
+            const sessionClassifier = await ort.InferenceSession.create(classifierPath);
+
+            const classifierInputName = sessionClassifier.inputNames[0];
+            const classifierOutputName = sessionClassifier.outputNames[0];
+
+            const classifierFeeds = {};
+            classifierFeeds[classifierInputName] = tensor;
+
+            const resultsClassifier = await sessionClassifier.run(classifierFeeds, [classifierOutputName]);
+            const predictedLabel = Number(resultsClassifier[classifierOutputName].data[0]);
+
+            // ================= 2. รันโมเดล Regressor (พยากรณ์สี) =================
+            const regressorPath = `./backend/data/${selectedModel}_Regressor.onnx?v=${cacheBuster}`;
+            const sessionRegressor = await ort.InferenceSession.create(regressorPath);
+
+            // ดึงชื่อ Input และ Output แบบอัตโนมัติจากโมเดล
+            const regressorInputName = sessionRegressor.inputNames[0];
+            const regressorOutputName = sessionRegressor.outputNames[0];
+
+            // สร้าง Feeds โดยใช้ชื่อ Input ที่ถูกต้อง
+            const regressorFeeds = {};
+            regressorFeeds[regressorInputName] = tensor;
+
+            const resultsRegressor = await sessionRegressor.run(regressorFeeds, [regressorOutputName]);
+
+            // ดึงผลลัพธ์ RGB
+            const predictedRgb = [
+                resultsRegressor[regressorOutputName].data[0],
+                resultsRegressor[regressorOutputName].data[1],
+                resultsRegressor[regressorOutputName].data[2]
+            ];
+
+            const predictedHsv = rgbToHsv(predictedRgb[0], predictedRgb[1], predictedRgb[2]);
+
+            // 3. ค้นหารูปภาพจากฐานข้อมูล .csv (กลุ่ม label เดียวกัน และคล้าย >= 90%)
+            let matchedImage = null;
+            let bestSimilarity = 0;
+
+            const sameLabelData = CSV_DATABASE.filter(item => item.label == predictedLabel);
+
+            sameLabelData.forEach(item => {
+                const dbRgb = [parseFloat(item.R_mean), parseFloat(item.G_mean), parseFloat(item.B_mean)];
+                const similarity = calculateRgbSimilarity(predictedRgb, dbRgb);
+
+                // หาค่าที่คล้ายที่สุดและมากกว่าหรือเท่ากับ 90%
+                if (similarity >= 90 && similarity > bestSimilarity) {
+                    bestSimilarity = similarity;
+                    matchedImage = item.image_path;
+                }
+            });
+
+            // 4. อัปเดตหน้า UI (ข้อความสถานะ)
+            document.getElementById('resCondition').innerText = getLabelText(predictedLabel);
+            document.getElementById('resEnvDetails').innerText =
+                `อุณหภูมิ: ${envData.temp}°C | ความชื้น: ${envData.humidity}% | เมฆ: ${envData.cloudcover}% | ปริมาณฝน: ${envData.precip}mm | รังสี: ${envData.solarradiation}W/m² | ทัศนวิสัย: ${envData.visibility}km`;
+
+            const roundedRgb = predictedRgb.map(v => Math.round(v));
+            document.getElementById('resRgbText').innerText = `RGB(${roundedRgb.join(', ')})`;
+            document.getElementById('resHsvText').innerText = `HSV(${predictedHsv[0]}°, ${predictedHsv[1]}%, ${predictedHsv[2]}%)`;
+            document.getElementById('resColorBadge').style.backgroundColor = `rgb(${roundedRgb.join(',')})`;
+
+            const skyImgElement = document.getElementById('resSkyImage');
+            const noImgElement = document.getElementById('resNoImage');
+            const similarityEl = document.getElementById('resSimilarity');
+
+            if (matchedImage) {
+                skyImgElement.src = matchedImage;
+                skyImgElement.style.display = 'block';
+                noImgElement.style.display = 'none';
+                similarityEl.innerHTML = `<i class="fa-solid fa-check-double"></i> คล้ายกัน: ${bestSimilarity}%`;
+                similarityEl.style.display = 'block';
+            } else {
+                skyImgElement.style.display = 'none';
+                noImgElement.style.display = 'block';
+                similarityEl.style.display = 'none';
+            }
+
+            document.getElementById('placeholderState').style.display = 'none';
+            document.getElementById('resultsState').style.display = 'block';
+            replayResultAnimation();
+
+        } catch (error) {
+            console.error(error);
+            alert("เกิดข้อผิดพลาด: " + error.message);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> พยากรณ์ท้องฟ้า';
+        }
+    }
+</script>
+
+</body>
+</html>
