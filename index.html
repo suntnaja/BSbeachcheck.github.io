@@ -1126,27 +1126,21 @@
             const predictedHsv = rgbToHsv(predictedRgb[0], predictedRgb[1], predictedRgb[2]);
 
             // 3. ค้นหารูปภาพจากฐานข้อมูล .csv (กลุ่ม label เดียวกัน และคล้าย >= 90%)
-            let matchedImages = []; // เปลี่ยนมาใช้ Array เพื่อเก็บหลายรูป
-
+            let matchedImages = []; 
             const sameLabelData = CSV_DATABASE.filter(item => item.label == predictedLabel);
-
+            
             sameLabelData.forEach(item => {
                 const dbRgb = [parseFloat(item.R_mean), parseFloat(item.G_mean), parseFloat(item.B_mean)];
                 const similarity = calculateRgbSimilarity(predictedRgb, dbRgb);
-
-                // เก็บทุกรูปที่มีความแม่นยำตั้งแต่ 90% ขึ้นไป
+                
                 if (similarity >= 90) {
-                    matchedImages.push({
-                        path: item.image_path,
-                        similarity: similarity
-                    });
+                    matchedImages.push({ path: item.image_path, similarity: similarity });
                 }
             });
-
-            // เรียงลำดับความแม่นยำจากมากไปน้อย (รูปที่แม่นยำที่สุดจะอยู่บนสุด)
+            // เรียงลำดับจากความแม่นยำมากที่สุดไปน้อยที่สุด
             matchedImages.sort((a, b) => b.similarity - a.similarity);
 
-            // 4. อัปเดตหน้า UI (ข้อความสถานะ)
+            // 4. อัปเดตหน้า UI (ข้อความสถานะตัวเลข)
             document.getElementById('resCondition').innerText = getLabelText(predictedLabel);
 
             const r1 = v => Number(Number(v).toFixed(1));
@@ -1168,73 +1162,96 @@
             badge.style.backgroundColor = `rgb(${roundedRgb.join(',')})`;
             badge.style.setProperty('--swatch', `rgba(${roundedRgb.join(',')},.65)`);
 
+            // ================= สร้าง CAROUSEL รูปภาพ =================
             const skyImgElement = document.getElementById('resSkyImage');
             const noImgElement = document.getElementById('resNoImage');
             const similarityEl = document.getElementById('resSimilarity');
             const expandBtn = document.getElementById('expandBtn');
             const previewContainer = document.querySelector('.image-preview-container');
 
-            // ซ่อนโครงสร้างรูปเดี่ยวแบบเก่าไว้ (แต่ใช้เป็นฐานส่งต่อข้อมูลให้ Lightbox)
+            // ซ่อนโครงสร้างรูปเดี่ยวแบบดั้งเดิม
             if(skyImgElement) skyImgElement.style.display = 'none';
             if(similarityEl) similarityEl.style.display = 'none';
             if(expandBtn) expandBtn.style.display = 'none';
 
-            // ล้างรูปภาพที่เคยสร้างจากการพยากรณ์รอบก่อนหน้าออก
-            document.querySelectorAll('.dynamic-gallery-item').forEach(el => el.remove());
+            // ล้าง Carousel เก่าที่เคยสร้างไว้ (กรณีผู้ใช้กดพยากรณ์หลายรอบ)
+            document.querySelectorAll('.carousel-wrapper').forEach(el => el.remove());
 
             if (matchedImages.length > 0) {
                 noImgElement.style.display = 'none';
                 
-                // วนลูปสร้างรูปภาพและป้ายความแม่นยำตามจำนวนที่ค้นพบ
+                const wrapper = document.createElement('div');
+                wrapper.className = 'carousel-wrapper';
+                
+                const track = document.createElement('div');
+                track.className = 'carousel-track';
+                
+                // วนลูปสร้างไอเทมรูปภาพ
                 matchedImages.forEach((imgData, index) => {
-                    const wrapper = document.createElement('div');
-                    wrapper.className = 'dynamic-gallery-item';
-                    wrapper.style.position = 'relative';
-                    
-                    // เว้นช่องว่างระหว่างรูปภาพ (ยกเว้นรูปล่างสุด)
-                    if (index < matchedImages.length - 1) {
-                        wrapper.style.marginBottom = '25px';
+                    const item = document.createElement('div');
+                    item.className = 'carousel-item';
+
+                    // ป้ายบอกความแม่นยำ (ขวาบน)
+                    const simBadge = document.createElement('div');
+                    simBadge.className = 'similarity-badge';
+                    simBadge.innerHTML = `<i class="fa-solid fa-check-double"></i> ความแม่นยำ: ${imgData.similarity}%`;
+
+                    // ป้ายบอกลำดับภาพ 1/3 (ซ้ายบน - แสดงเมื่อมีหลายรูป)
+                    if (matchedImages.length > 1) {
+                        const counter = document.createElement('div');
+                        counter.className = 'carousel-counter';
+                        counter.innerHTML = `<i class="fa-regular fa-images"></i> ${index + 1}/${matchedImages.length}`;
+                        item.appendChild(counter);
                     }
 
-                    // สร้างป้ายบอกความแม่นยำของแต่ละรูป
-                    const badge = document.createElement('div');
-                    badge.className = 'similarity-badge';
-                    badge.innerHTML = `<i class="fa-solid fa-check-double"></i> ความแม่นยำ: ${imgData.similarity}%`;
-
-                    // สร้างกรอบรูปภาพ
+                    // สร้างรูป
                     const img = document.createElement('img');
                     img.src = imgData.path;
                     img.alt = `ภาพจำลองท้องฟ้า ${index + 1}`;
                     img.style.display = 'block';
-                    img.style.width = '100%';
-                    img.style.height = 'auto';
-                    img.style.maxHeight = '350px';
-                    img.style.objectFit = 'contain';
-                    img.style.cursor = 'zoom-in';
+                    img.style.cursor = 'zoom-in'; // ไอคอนแว่นขยาย
 
-                    // เมื่อกดคลิกที่รูปใหม่ ให้ทำงานสอดคล้องกับ Lightbox โค้ดเดิม
+                    // ลิงก์รูปภาพใน Carousel เข้ากับระบบ Lightbox ขยายเต็มจอเดิม
                     img.onclick = function() {
                         if (skyImgElement && similarityEl) {
-                            // อัปเดตข้อมูลใส่ช่องทางเดิมเพื่อส่งให้ Lightbox ดึงไปแสดง
                             skyImgElement.setAttribute('src', imgData.path);
                             similarityEl.innerHTML = `<i class="fa-solid fa-check-double"></i> คล้ายกัน: ${imgData.similarity}%`;
                             similarityEl.style.display = 'block'; 
-                            
-                            // จำลองการคลิกเพื่อเปิด Lightbox
-                            skyImgElement.click(); 
-                            
-                            // ซ่อนคืนทันทีเพื่อไม่ให้โชว์ซ้ำบนหน้าจอปกติ
+                            skyImgElement.click(); // ส่งสัญญาณให้ Lightbox เปิด
                             similarityEl.style.display = 'none'; 
                         }
                     };
 
-                    wrapper.appendChild(badge);
-                    wrapper.appendChild(img);
-                    
-                    // แทรกรูปลงในกรอบ ก่อนป้ายแบนเนอร์ "ภาพถ่ายใกล้เคียงจากคลัง"
-                    const footerBadge = previewContainer.querySelector('.image-badge');
-                    previewContainer.insertBefore(wrapper, footerBadge);
+                    item.appendChild(simBadge);
+                    item.appendChild(img);
+                    track.appendChild(item);
                 });
+                
+                wrapper.appendChild(track);
+
+                // หากมีหลายรูป ให้สร้างปุ่มลูกศร ซ้าย-ขวา
+                if (matchedImages.length > 1) {
+                    const prevBtn = document.createElement('button');
+                    prevBtn.className = 'carousel-nav prev';
+                    prevBtn.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
+                    prevBtn.type = 'button';
+                    
+                    const nextBtn = document.createElement('button');
+                    nextBtn.className = 'carousel-nav next';
+                    nextBtn.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
+                    nextBtn.type = 'button';
+
+                    // สั่งเลื่อนทีละ 1 รูปภาพอย่างสมูธ
+                    prevBtn.onclick = () => track.scrollBy({ left: -track.clientWidth, behavior: 'smooth' });
+                    nextBtn.onclick = () => track.scrollBy({ left: track.clientWidth, behavior: 'smooth' });
+                    
+                    wrapper.appendChild(prevBtn);
+                    wrapper.appendChild(nextBtn);
+                }
+
+                // แทรกประกอบเข้าไปในกล่องแสดงผล
+                const footerBadge = previewContainer.querySelector('.image-badge');
+                previewContainer.insertBefore(wrapper, footerBadge);
             } else {
                 noImgElement.style.display = 'block';
             }
@@ -1251,6 +1268,35 @@
             submitBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> พยากรณ์ท้องฟ้า';
         }
     }
+
+/* ================= CAROUSEL ================= */
+        .carousel-wrapper { position: relative; width: 100%; }
+        .carousel-track {
+            display: flex; overflow-x: auto; scroll-snap-type: x mandatory;
+            scrollbar-width: none; -ms-overflow-style: none; scroll-behavior: smooth;
+        }
+        .carousel-track::-webkit-scrollbar { display: none; }
+        .carousel-item { flex: 0 0 100%; scroll-snap-align: center; position: relative; }
+        
+        .carousel-nav {
+            position: absolute; top: 50%; transform: translateY(-50%); z-index: 5;
+            width: 36px; height: 36px; border-radius: 50%; border: 1px solid rgba(255,255,255,.4);
+            background: rgba(10,25,50,.5); color: #fff; cursor: pointer;
+            backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); 
+            display: flex; align-items: center; justify-content: center;
+            transition: background .3s, transform .2s;
+        }
+        .carousel-nav:hover { background: rgba(10,25,50,.8); transform: translateY(-50%) scale(1.1); }
+        .carousel-nav.prev { left: 10px; }
+        .carousel-nav.next { right: 10px; }
+        
+        .carousel-counter {
+            position: absolute; top: 12px; left: 12px; z-index: 5;
+            background: rgba(0,0,0,0.5); color: white; padding: 4px 10px;
+            border-radius: 20px; font-size: 0.75rem; backdrop-filter: blur(4px);
+        }
+
+    
 </script>
 
 </body>
