@@ -192,45 +192,41 @@ def save_to_onnx(model, filepath, initial_type, timestamp_str):
     try:
         # 🌟 1. จัดการ CatBoost (ใช้คำสั่งเซฟของตัวเอง + ผ่าตัดแก้บั๊ก ONNX)
         if 'CatBoost' in type(model).__name__:
+            # เซฟไฟล์ดิบก่อน
             model.save_model(filepath, format="onnx")
             
-            # --- เริ่มกระบวนการซ่อมไฟล์ ONNX ของ CatBoost (ตรรกะใหม่) ---
+            # โหลดไฟล์ดิบมาผ่าตัด
             onnx_model = onnx.load(filepath)
-            
-            # เช็คว่าเป็น Classifier หรือ Regressor เพื่อซ่อมให้ถูกจุด
             is_classifier = 'Classifier' in type(model).__name__
             
             for node in onnx_model.graph.node:
-                # 1. ซ่อม Classifier
-                if is_classifier and node.op_type == 'TreeEnsembleClassifier':
-                    # ลบ Attribute เดิมที่ชื่อซ้ำและมีปัญหาออกทั้งหมดก่อน
-                    # (ใช้การ del ทีละตัวแบบถอยหลัง เพื่อเลี่ยง Error: does not support assignment)
-                    for i in range(len(node.attribute) - 1, -1, -1):
-                        if node.attribute[i].name in ['classlabels_strings', 'classlabels_int64s']:
-                            del node.attribute[i]
+                if node.op_type in ['TreeEnsembleClassifier', 'TreeEnsembleRegressor']:
+                    # 1. กวาด Attribute เดิมเก็บไว้ (ยกเว้นตัวที่มีปัญหา)
+                    valid_attrs = []
+                    for attr in node.attribute:
+                        if attr.name not in ['classlabels_strings', 'classlabels_int64s', 'n_targets']:
+                            valid_attrs.append(attr)
                     
-                    # สร้าง Attribute ใหม่ที่ถูกต้อง (0, 1, 2, 3) ใส่เข้าไป
-                    attr = helper.make_attribute("classlabels_int64s", [0, 1, 2, 3])
-                    node.attribute.append(attr)
-                
-                # 2. ซ่อม Regressor
-                elif not is_classifier and node.op_type == 'TreeEnsembleRegressor':
-                    # ลบ Attribute เดิมที่ชื่อซ้ำและมีปัญหาออกทั้งหมดก่อน
-                    for i in range(len(node.attribute) - 1, -1, -1):
-                        if node.attribute[i].name == 'n_targets':
-                            del node.attribute[i]
+                    # 2. เคลียร์ Attribute เดิมของโหนดนี้ทิ้งให้หมด (วิธีนี้เลี่ยงบั๊ก Assignment ได้ 100%)
+                    del node.attribute[:]
                     
-                    # สร้าง Attribute ใหม่ที่ถูกต้อง (6) ใส่เข้าไป
-                    attr = helper.make_attribute("n_targets", 6)
-                    node.attribute.append(attr)
+                    # 3. เติมค่าที่ถูกต้องเข้าไปในลิสต์ที่พักไว้
+                    if is_classifier:
+                        valid_attrs.append(helper.make_attribute("classlabels_int64s", [0, 1, 2, 3]))
+                    else:
+                        valid_attrs.append(helper.make_attribute("n_targets", 6))
                         
-            # ฝังเวลาเข้าไปใน CatBoost
+                    # 4. ยัดข้อมูลทั้งหมดกลับเข้าไปในโหนด
+                    node.attribute.extend(valid_attrs)
+                    print(f"   [Patch] ซ่อมแซมโหนด {node.op_type} สำเร็จ!")
+                        
+            # ฝังเวลา
             meta = onnx_model.metadata_props.add()
             meta.key = "creation_time"
             meta.value = timestamp_str
             onnx_model.doc_string = f"Model trained and generated on: {timestamp_str}"
             
-            # บันทึกทับไฟล์เดิม
+            # เซฟทับไฟล์เดิม
             onnx.save(onnx_model, filepath)
             return True
             
