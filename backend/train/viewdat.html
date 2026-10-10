@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบจัดการรูปภาพและข้อมูลสภาพอากาศ</title>
+    <!-- โหลด Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .image-preview {
+            max-width: 150px;
+            height: auto;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .image-preview:hover {
+            transform: scale(1.1);
+        }
+        .table-container {
+            margin-top: 20px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container-fluid mt-4">
+    <h2 class="mb-4">🌤️ ระบบจัดการข้อมูลสภาพอากาศและรูปภาพ</h2>
+
+    <!-- ส่วนกรอก GitHub Token สำหรับการลบไฟล์ -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">ตั้งค่าการลบไฟล์ (GitHub API)</h5>
+            <div class="row g-3 align-items-center">
+                <div class="col-auto">
+                    <label for="githubToken" class="col-form-label">GitHub Personal Access Token:</label>
+                </div>
+                <div class="col-auto">
+                    <input type="password" id="githubToken" class="form-control" placeholder="ghp_xxxxxxxxxxxx">
+                </div>
+                <div class="col-auto">
+                    <span class="form-text">
+                        จำเป็นต้องใช้เพื่อลบไฟล์ใน Repository (จะไม่ถูกบันทึก)
+                    </span>
+                </div>
+            </div>
+            <div class="row g-3 align-items-center mt-2">
+                 <div class="col-auto">
+                    <label for="repoDetails" class="col-form-label">Repository (เช่น username/repo):</label>
+                </div>
+                <div class="col-auto">
+                    <input type="text" id="repoDetails" class="form-control" placeholder="username/repo-name">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ตารางแสดงข้อมูล -->
+    <div class="table-container">
+        <table class="table table-hover table-bordered align-middle" id="dataTable">
+            <thead class="table-dark">
+                <tr>
+                    <th>รูปภาพ</th>
+                    <th>Timestamp</th>
+                    <th>File Path</th>
+                    <th>Label</th>
+                    <th>RGB (Mean)</th>
+                    <th>HSV (Mean)</th>
+                    <th>Temp</th>
+                    <th>Humid</th>
+                    <th>จัดการ</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <!-- ข้อมูลจะถูกเติมด้วย JavaScript -->
+                <tr><td colspan="9" class="text-center">กำลังโหลดข้อมูล...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal สำหรับแสดงรูปภาพขนาดใหญ่ -->
+<div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-body text-center">
+        <img id="modalImage" src="" alt="ภาพขนาดใหญ่" class="img-fluid rounded">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- โหลดไลบรารีที่จำเป็น -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+
+<script>
+    // URL ของไฟล์ CSV (ถ้าคุณรันบน localhost อาจจะใช้ path สัมพัทธ์ เช่น 'data/model_db.csv')
+    // ถ้าขึ้น GitHub Pages ให้ใช้ URL สัมพัทธ์ เช่น './data/model_db.csv'
+    const CSV_URL = './data/model_db.csv'; 
+
+    // ดึงข้อมูลและสร้างตาราง
+    function loadData() {
+        Papa.parse(CSV_URL, {
+            download: true,
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                renderTable(results.data);
+            },
+            error: function(error) {
+                document.getElementById('tableBody').innerHTML = `<tr><td colspan="9" class="text-danger text-center">เกิดข้อผิดพลาดในการโหลดข้อมูล: ${error.message}</td></tr>`;
+            }
+        });
+    }
+
+    // สร้างตารางจากข้อมูล JSON
+    function renderTable(data) {
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = '';
+
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center">ไม่พบข้อมูลในระบบ</td></tr>';
+            return;
+        }
+
+        data.forEach((row, index) => {
+            const tr = document.createElement('tr');
+            
+            // สร้าง URL ของรูปภาพ (ปรับตามโครงสร้างของคุณ)
+            const imgPath = row.image_path ? row.image_path : '';
+            
+            // ฟังก์ชันสำหรับส่งค่าไปยัง Modal
+            const imageHtml = imgPath ? `<img src="${imgPath}" class="image-preview" onclick="showImage('${imgPath}')" alt="image">` : 'ไม่มีภาพ';
+
+            tr.innerHTML = `
+                <td>${imageHtml}</td>
+                <td>${row.timestamp || '-'}</td>
+                <td><small>${imgPath}</small></td>
+                <td><strong>${row.label || '-'}</strong></td>
+                <td>${row.R_mean}, ${row.G_mean},${row.B_mean}</td>
+                <td>${row.H_mean}, ${row.S_mean},${row.V_mean}</td>
+                <td>${row.env_temp || '-'}</td>
+                <td>${row.env_humidity || '-'}</td>
+                <td>
+                    <button class="btn btn-danger btn-sm"
