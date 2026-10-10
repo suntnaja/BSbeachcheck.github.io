@@ -528,6 +528,33 @@
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
         }
+
+    /* ================= CAROUSEL ================= */
+        .carousel-wrapper { position: relative; width: 100%; }
+        .carousel-track {
+            display: flex; overflow-x: auto; scroll-snap-type: x mandatory;
+            scrollbar-width: none; -ms-overflow-style: none; scroll-behavior: smooth;
+        }
+        .carousel-track::-webkit-scrollbar { display: none; }
+        .carousel-item { flex: 0 0 100%; scroll-snap-align: center; position: relative; }
+        
+        .carousel-nav {
+            position: absolute; top: 50%; transform: translateY(-50%); z-index: 5;
+            width: 36px; height: 36px; border-radius: 50%; border: 1px solid rgba(255,255,255,.4);
+            background: rgba(10,25,50,.5); color: #fff; cursor: pointer;
+            backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); 
+            display: flex; align-items: center; justify-content: center;
+            transition: background .3s, transform .2s;
+        }
+        .carousel-nav:hover { background: rgba(10,25,50,.8); transform: translateY(-50%) scale(1.1); }
+        .carousel-nav.prev { left: 10px; }
+        .carousel-nav.next { right: 10px; }
+        
+        .carousel-counter {
+            position: absolute; top: 12px; left: 12px; z-index: 5;
+            background: rgba(0,0,0,0.5); color: white; padding: 4px 10px;
+            border-radius: 20px; font-size: 0.75rem; backdrop-filter: blur(4px);
+        }
     </style>
 </head>
 <body>
@@ -1268,34 +1295,6 @@
             submitBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> พยากรณ์ท้องฟ้า';
         }
     }
-
-/* ================= CAROUSEL ================= */
-        .carousel-wrapper { position: relative; width: 100%; }
-        .carousel-track {
-            display: flex; overflow-x: auto; scroll-snap-type: x mandatory;
-            scrollbar-width: none; -ms-overflow-style: none; scroll-behavior: smooth;
-        }
-        .carousel-track::-webkit-scrollbar { display: none; }
-        .carousel-item { flex: 0 0 100%; scroll-snap-align: center; position: relative; }
-        
-        .carousel-nav {
-            position: absolute; top: 50%; transform: translateY(-50%); z-index: 5;
-            width: 36px; height: 36px; border-radius: 50%; border: 1px solid rgba(255,255,255,.4);
-            background: rgba(10,25,50,.5); color: #fff; cursor: pointer;
-            backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); 
-            display: flex; align-items: center; justify-content: center;
-            transition: background .3s, transform .2s;
-        }
-        .carousel-nav:hover { background: rgba(10,25,50,.8); transform: translateY(-50%) scale(1.1); }
-        .carousel-nav.prev { left: 10px; }
-        .carousel-nav.next { right: 10px; }
-        
-        .carousel-counter {
-            position: absolute; top: 12px; left: 12px; z-index: 5;
-            background: rgba(0,0,0,0.5); color: white; padding: 4px 10px;
-            border-radius: 20px; font-size: 0.75rem; backdrop-filter: blur(4px);
-        }
-
     
 </script>
 
