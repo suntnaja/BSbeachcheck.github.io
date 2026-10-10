@@ -81,11 +81,11 @@
 </div>
 
 <!-- Modal สำหรับแสดงรูปภาพขนาดใหญ่ -->
-<div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="Modal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-body text-center">
-        <img id="modalImage" src="" alt="ภาพขนาดใหญ่" class="img-fluid rounded">
+        <img id="modal" src="" alt="ภาพขนาดใหญ่" class="img-fluid rounded">
       </div>
     </div>
   </div>
@@ -132,7 +132,7 @@
             const imgPath = row.image_path ? row.image_path : '';
             
             // ฟังก์ชันสำหรับส่งค่าไปยัง Modal
-            const imageHtml = imgPath ? `<img src="${imgPath}" class="image-preview" onclick="showImage('${imgPath}')" alt="image">` : 'ไม่มีภาพ';
+            const imageHtml = imgPath ? `<img src="././${imgPath}" class="image-preview" onclick="showImage('${imgPath}')" alt="image">` : 'ไม่มีภาพ';
 
             tr.innerHTML = `
                 <td>${imageHtml}</td>
