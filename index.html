@@ -1286,14 +1286,16 @@
                     img.onclick = function() {
                         if (skyImgElement && similarityEl) {
                             skyImgElement.setAttribute('src', imgData.path);
-                            similarityEl.innerHTML = `<i class="fa-solid fa-check-double"></i> คล้ายกัน: ${imgData.similarity}%`;
+                            // ส่งข้อมูลเปอร์เซ็นต์ + วันที่ ไปให้หน้าจอ Lightbox
+                            similarityEl.innerHTML = `<i class="fa-solid fa-check-double"></i> คล้ายกัน: ${imgData.similarity}% &nbsp;|&nbsp; <i class="fa-regular fa-calendar-days"></i> ${imgData.date}`;
                             similarityEl.style.display = 'block'; 
-                            skyImgElement.click(); // ส่งสัญญาณให้ Lightbox เปิด
+                            skyImgElement.click(); 
                             similarityEl.style.display = 'none'; 
                         }
                     };
 
                     item.appendChild(simBadge);
+                    item.appendChild(dateBadge);
                     item.appendChild(img);
                     track.appendChild(item);
                 });
