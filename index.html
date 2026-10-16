@@ -555,6 +555,13 @@
             background: rgba(0,0,0,0.5); color: white; padding: 4px 10px;
             border-radius: 20px; font-size: 0.75rem; backdrop-filter: blur(4px);
         }
+        
+        .image-date-badge {
+            position: absolute; bottom: 12px; left: 12px; z-index: 5;
+            background: rgba(10,25,50,.6); color: white; padding: 4px 10px;
+            border-radius: 20px; font-size: 0.75rem; backdrop-filter: blur(4px);
+            border: 1px solid rgba(255,255,255,.3);
+        }
     </style>
 </head>
 <body>
@@ -1171,6 +1178,8 @@
             // เรียงลำดับจากความแม่นยำมากที่สุดไปน้อยที่สุด
             matchedImages.sort((a, b) => b.similarity - a.similarity);
 
+            matchedImages = matchedImages.slice(0, 10);
+
             // 4. อัปเดตหน้า UI (ข้อความสถานะตัวเลข)
             document.getElementById('resCondition').innerText = getLabelText(predictedLabel);
 
@@ -1234,6 +1243,11 @@
                         counter.innerHTML = `<i class="fa-regular fa-images"></i> ${index + 1}/${matchedImages.length}`;
                         item.appendChild(counter);
                     }
+
+                    //ป้ายบอกวันที่ (ซ้ายล่าง)
+                    const dateBadge = document.createElement('div');
+                    dateBadge.className = 'image-date-badge';
+                    dateBadge.innerHTML = `<i class="fa-regular fa-calendar-days"></i> ถ่ายเมื่อ: ${imgData.date}`;
 
                     // สร้างรูป
                     const img = document.createElement('img');
