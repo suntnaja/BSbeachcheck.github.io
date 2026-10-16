@@ -1172,7 +1172,33 @@
                 const similarity = calculateRgbSimilarity(predictedRgb, dbRgb);
                 
                 if (similarity >= 90) {
-                    matchedImages.push({ path: item.image_path, similarity: similarity });
+                    // ================= ดึงและจัดรูปแบบเวลาจากคอลัมน์ timestamp =================
+                    let formattedDate = "ไม่ระบุวันที่";
+                    
+                    if (item.timestamp) {
+                        const dateObj = new Date(item.timestamp);
+                        
+                        // ตรวจสอบว่าแปลงวันที่สำเร็จหรือไม่
+                        if (!isNaN(dateObj.getTime())) {
+                            formattedDate = dateObj.toLocaleString('th-TH', { 
+                                day: 'numeric', 
+                                month: 'short', 
+                                year: 'numeric', 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                            }) + ' น.';
+                        } else {
+                            // ถ้าข้อมูลมาผิดแปลก แปลงไม่ได้ ให้แสดงค่าดิบโดยเอาตัว T คั่นออก
+                            formattedDate = item.timestamp.replace('T', '  เวลา ');
+                        }
+                    }
+                    // ====================================================================
+
+                    matchedImages.push({ 
+                        path: item.image_path, 
+                        similarity: similarity,
+                        date: formattedDate // ใช้ตัวแปรที่จัดรูปแบบเสร็จแล้ว
+                    });
                 }
             });
             // เรียงลำดับจากความแม่นยำมากที่สุดไปน้อยที่สุด
@@ -1247,7 +1273,7 @@
                     //ป้ายบอกวันที่ (ซ้ายล่าง)
                     const dateBadge = document.createElement('div');
                     dateBadge.className = 'image-date-badge';
-                    dateBadge.innerHTML = `<i class="fa-regular fa-calendar-days"></i> ถ่ายเมื่อ: ${imgData.date}`;
+                    dateBadge.innerHTML = `<i class="fa-regular fa-calendar-days"></i> ถ่ายเมื่อ: ${matchedImages.formattedDate}`;
 
                     // สร้างรูป
                     const img = document.createElement('img');
