@@ -60,10 +60,15 @@ def load_and_prepare_data(csv_file_path):
         df_clean['timestamp'] = pd.to_datetime(df_clean['timestamp'])
         df_clean = df_clean.sort_values('timestamp').reset_index(drop=True)
         
+        # 🌟 1. สกัดเวลาเป็นตัวเลข (ชั่วโมง 0-23 และ เดือน 1-12)
+        df_clean['hour'] = df_clean['timestamp'].dt.hour
+        df_clean['month'] = df_clean['timestamp'].dt.month
+        
     return df_clean
 
 def train_and_evaluate(df):
-    features = ['env_temp', 'env_humidity', 'env_precip', 'env_cloudcover', 'env_visibility', 'env_solarradiation']
+    # 🌟 2. อัปเดต Features โดยเพิ่ม 'hour' และ 'month' นำหน้า
+    features = ['hour', 'month', 'env_temp', 'env_humidity', 'env_precip', 'env_cloudcover', 'env_visibility', 'env_solarradiation']
     X = df[features]
     y_label = df['label']
     y_colors = df[['R_mean', 'G_mean', 'B_mean', 'H_mean', 'S_mean', 'V_mean']]
@@ -319,7 +324,7 @@ if __name__ == "__main__":
             all_trained_models = train_and_evaluate(df_dataset)
             
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            initial_type = [('float_input', FloatTensorType([None, 6]))]
+            initial_type = [('float_input', FloatTensorType([None, 8]))]
             
             print("\n💾 กำลังแปลงและบันทึกไฟล์โมเดลเป็น .onnx ...")
             for model_name, models in all_trained_models.items():
