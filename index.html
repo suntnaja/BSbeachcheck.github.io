@@ -1109,16 +1109,27 @@
             // 1. ดึงข้อมูลสภาพอากาศจาก TMD API
             const envData = await fetchWeatherTMD(rawDatetime);
 
+            // ================= ส่วนที่แก้ไขใหม่ =================
+            // ดึงค่า hour และ month จากวันที่ที่ผู้ใช้เลือก (rawDatetime)
+            const inputDate = new Date(rawDatetime);
+            const inputHour = inputDate.getHours();
+            // เดือนใน JavaScript เริ่มที่ 0 (0-11) ดังนั้นต้องบวก 1 เพื่อให้ตรงกับข้อมูลจริง (1-12)
+            const inputMonth = inputDate.getMonth() + 1; 
+
+            // เรียงลำดับ Feature ทั้ง 8 ตัวให้ตรงกับที่โมเดลคาดหวังเป๊ะๆ
             const inputFeatures = Float32Array.from([
-                envData.temp,
-                envData.humidity,
-                envData.precip,
-                envData.cloudcover,
-                envData.visibility,
-                envData.solarradiation
+                inputHour,               // 'hour'
+                inputMonth,              // 'month'
+                envData.temp,            // 'env_temp'
+                envData.humidity,        // 'env_humidity'
+                envData.precip,          // 'env_precip'
+                envData.cloudcover,      // 'env_cloudcover'
+                envData.visibility,      // 'env_visibility'
+                envData.solarradiation   // 'env_solarradiation'
             ]);
 
-            const tensor = new ort.Tensor('float32', inputFeatures, [1, 6]);
+            // เปลี่ยน Shape ของ Tensor จาก [1, 6] เป็น [1, 8]
+            const tensor = new ort.Tensor('float32', inputFeatures, [1, 8]);
             const selectedModel = document.getElementById('modelSelect').value;
 
             // แสดงสถานะว่ากำลังใช้โมเดลอะไร
