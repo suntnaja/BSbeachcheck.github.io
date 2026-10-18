@@ -275,15 +275,6 @@ def save_to_onnx(model, filepath, initial_type, timestamp_str):
         if 'CatBoost' in type(model).__name__:
             model.save_model(filepath, format="onnx")
         
-            if 'Regressor' in type(model).__name__:
-                convert_catboost_multirmse(filepath, 6, timestamp_str)
-                return True
-        
-            onnx_model = onnx.load(filepath)
-            for node in onnx_model.graph.node:
-                if node.op_type == 'TreeEnsembleClassifier':
-                    _fix_tree_node(node, 4, is_classifier=True)
-        
             meta = onnx_model.metadata_props.add()
             meta.key = "creation_time"
             meta.value = timestamp_str
