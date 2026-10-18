@@ -370,6 +370,8 @@ def merge_catboost_regressors(multi_model, filepath, initial_type, timestamp_str
         
         graph = helper.make_graph(nodes, 'MergedCatBoost', [graph_input], [graph_output])
         merged_model = helper.make_model(graph, producer_name='CatBoostMerger')
+
+        merged_model.ir_version = 13
         
         # ตั้งค่ามาตรฐาน ONNX
         del merged_model.opset_import[:]
