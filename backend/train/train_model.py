@@ -253,27 +253,101 @@ def fix_catboost_onnx(file_path, model_type, num_classes_or_targets):
     except Exception as e:
         print(f"   ❌ เกิดข้อผิดพลาดตอนซ่อมไฟล์: {e}")
 
+def _fix_tree_node(node, n_expected, is_classifier):
+    """Rewrite attributes so base_values has 0 or n_expected entries."""
+    kept, base = [], None
+    for attr in node.attribute:
+        if attr.name == 'base_values':
+            base = list(attr.floats)
+            continue
+        if attr.name == 'n_targets':
+            continue
+        if is_classifier and attr.name in ('classlabels_strings', 'classlabels_int64s'):
+            continue
+        kept.append(attr)
+
+    if base and len(base) == 1:
+        base = base * n_expected          # constant shift is harmless for softmax
+    elif not base or len(base) != n_expected:
+        base = [0.0] * n_expected         # CatBoost MultiClass/MultiRMSE has no bias anyway
+
+    kept.append(helper.make_attribute("base_values", base))
+    if is_classifier:
+        kept.append(helper.make_attribute("classlabels_int64s", [0, 1, 2, 3]))
+    else:
+        kept.append(helper.make_attribute("n_targets", n_expected))
+
+    del node.attribute[:]
+    node.attribute.extend(kept)
+
+def convert_catboost_multirmse(filepath, n_targets, timestamp_str):
+    """CatBoost writes MultiRMSE as TreeEnsembleClassifier+ZipMap. Rebuild it as a TreeEnsembleRegressor."""
+    m = onnx.load(filepath)
+    g = m.graph
+    old = next(n for n in g.node if n.op_type == 'TreeEnsembleClassifier')
+
+    rename = {'class_ids': 'target_ids', 'class_nodeids': 'target_nodeids',
+              'class_treeids': 'target_treeids', 'class_weights': 'target_weights'}
+    skip = {'classlabels_int64s', 'classlabels_strings', 'n_targets', 'base_values',
+            'post_transform', 'aggregate_function'}
+
+    attrs = []
+    for a in old.attribute:
+        if a.name in skip:
+            continue
+        c = onnx.AttributeProto()
+        c.CopyFrom(a)
+        c.name = rename.get(a.name, a.name)
+        attrs.append(c)
+
+    attrs += [
+        helper.make_attribute('n_targets', n_targets),
+        helper.make_attribute('aggregate_function', 'SUM'),
+        helper.make_attribute('post_transform', 'NONE'),
+        helper.make_attribute('base_values', [0.0] * n_targets),
+    ]
+
+    new = helper.make_node('TreeEnsembleRegressor', inputs=[old.input[0]],
+                           outputs=['variable'], domain='ai.onnx.ml', name='CatBoostRegressor')
+    new.attribute.extend(attrs)
+
+    # drop the classifier + ZipMap, add the regressor
+    for n in list(g.node):
+        if n.op_type in ('TreeEnsembleClassifier', 'ZipMap'):
+            g.node.remove(n)
+    g.node.append(new)
+
+    # graph output: float tensor [N, n_targets]
+    del g.output[:]
+    g.output.append(helper.make_tensor_value_info('variable', onnx.TensorProto.FLOAT, [None, n_targets]))
+
+    meta = m.metadata_props.add()
+    meta.key = "creation_time"
+    meta.value = timestamp_str
+    m.doc_string = f"Model trained and generated on: {timestamp_str}"
+    onnx.save(m, filepath)
+
 def save_to_onnx(model, filepath, initial_type, timestamp_str):
     try:
         # 🌟 1. จัดการ CatBoost (เซฟแล้วเรียกฟังก์ชันซ่อม)
         if 'CatBoost' in type(model).__name__:
-            # เซฟไฟล์ดิบด้วยคำสั่งของ CatBoost
             model.save_model(filepath, format="onnx")
-            
-            # เรียกใช้ฟังก์ชันซ่อมไฟล์ที่แยกออกมาตามประเภทโมเดล
-            if 'Classifier' in type(model).__name__:
-                fix_catboost_onnx(filepath, "classifier", 4)
-            else:
-                fix_catboost_onnx(filepath, "regressor", 6)
-            
-            # โหลดไฟล์ที่ซ่อมเสร็จแล้วมาฝังเวลา
+        
+            if 'Regressor' in type(model).__name__:
+                convert_catboost_multirmse(filepath, 6, timestamp_str)
+                return True
+        
             onnx_model = onnx.load(filepath)
+            for node in onnx_model.graph.node:
+                if node.op_type == 'TreeEnsembleClassifier':
+                    _fix_tree_node(node, 4, is_classifier=True)
+        
             meta = onnx_model.metadata_props.add()
             meta.key = "creation_time"
             meta.value = timestamp_str
             onnx_model.doc_string = f"Model trained and generated on: {timestamp_str}"
+        
             onnx.save(onnx_model, filepath)
-            
             return True
             
         # สำหรับโมเดล Sklearn, XGBoost, LightGBM
