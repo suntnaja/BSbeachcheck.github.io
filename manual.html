@@ -529,6 +529,19 @@
             *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
         }
 
+    
+        /* ================= TOGGLE BUTTON ================= */
+        .toggle-manual-btn {
+            position: fixed; bottom: 20px; left: 20px; z-index: 999;
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 16px; border-radius: 30px; font-size: 0.85rem; font-weight: 500;
+            color: var(--text-main); background: linear-gradient(145deg, var(--glass-strong), var(--glass-b));
+            border: 1px solid var(--glass-edge-a); box-shadow: var(--glass-shadow);
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            cursor: pointer; transition: all 0.3s ease;
+        }
+        .toggle-manual-btn:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.15); }
+
     /* ================= CAROUSEL ================= */
         .carousel-wrapper { position: relative; width: 100%; }
         .carousel-track {
@@ -635,7 +648,7 @@
                 </div>
 
                 <!-- เพิ่มฟิลด์สำหรับกรอกสภาพอากาศแบบ Manual -->
-                <div class="output-grid" style="margin-bottom: 20px; gap: 10px;">
+                <div id="manualInputContainer" class="output-grid" style="display: none; margin-bottom: 20px; gap: 10px;">
                     <div class="form-group" style="margin-bottom: 0;">
                         <label for="tempInput"><i class="fa-solid fa-temperature-half"></i> อุณหภูมิ (°C)</label>
                         <input type="number" step="any" id="tempInput" class="form-control" required value="30.0">
@@ -682,7 +695,7 @@
         <div>
             <div id="metadataDisplay"></div>
             <div class="foot-note">
-                กรอกข้อมูลสภาพอากาศด้วยตนเอง และพยากรณ์ด้วย ML Model
+                ดึงข้อมูลสภาพอากาศเรียลไทม์ และพยากรณ์ด้วย ML Model
             </div>
         </div>
     </div>
@@ -1260,5 +1273,31 @@
     }
 </script>
 
+
+<button class="toggle-manual-btn" id="toggleManualBtn" type="button" aria-label="แสดง/ซ่อน ช่องกรอกข้อมูล">
+    <i class="fa-solid fa-sliders"></i> <span id="toggleManualText">แสดงช่องกรอกข้อมูล</span>
+</button>
+
+<script>
+    // ===== Toggle Manual Inputs =====
+    (function() {
+        const toggleBtn = document.getElementById('toggleManualBtn');
+        const manualContainer = document.getElementById('manualInputContainer');
+        const toggleText = document.getElementById('toggleManualText');
+        const footNote = document.querySelector('.foot-note');
+
+        toggleBtn.addEventListener('click', function() {
+            if (manualContainer.style.display === 'none') {
+                manualContainer.style.display = 'grid';
+                toggleText.innerText = 'ซ่อนช่องกรอกข้อมูล';
+                footNote.innerHTML = 'กรอกข้อมูลสภาพอากาศด้วยตนเอง และพยากรณ์ด้วย ML Model';
+            } else {
+                manualContainer.style.display = 'none';
+                toggleText.innerText = 'แสดงช่องกรอกข้อมูล';
+                footNote.innerHTML = 'ดึงข้อมูลสภาพอากาศเรียลไทม์ และพยากรณ์ด้วย ML Model';
+            }
+        });
+    })();
+</script>
 </body>
 </html>
