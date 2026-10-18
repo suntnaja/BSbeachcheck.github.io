@@ -136,7 +136,7 @@ def train_and_evaluate(df):
         
         'CatBoost': {
             'clf': CatBoostClassifier(verbose=0, random_state=42),
-            'reg': MultiOutputRegressor(CatBoostRegressor(verbose=0, random_state=42))
+            'reg': CatBoostRegressor(dtrain, eval_set=dvalid, use_best_model=True, verbose=100 loss_function='MultiRMSE')
         }
         
     }
