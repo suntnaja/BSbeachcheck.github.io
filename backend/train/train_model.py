@@ -116,7 +116,7 @@ def train_and_evaluate(df):
     models = {
         'RandomForest': {
             'clf': RandomForestClassifier(n_estimators=100, random_state=42),
-            'reg': RandomForestRegressor(n_estimators=100, random_state=42)
+            'reg': RandomForestRegressor(n_estimators=200, random_state=42)
         },
         
         'GradientBoosting': {
@@ -136,7 +136,7 @@ def train_and_evaluate(df):
         
         'CatBoost': {
             'clf': CatBoostClassifier(verbose=0, random_state=42),
-            'reg': CatBoostRegressor(iterations=100, loss_function='MultiRMSE', verbose=0, random_state=42)
+            'reg': MultiOutputRegressor(CatBoostRegressor(verbose=0, random_state=42))
         }
         
     }
