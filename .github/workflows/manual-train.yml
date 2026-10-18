@@ -1,0 +1,47 @@
+name: 🎯 Manual Train Model
+
+# อนุญาตให้รัน Action นี้ด้วยการกดปุ่มบนหน้าเว็บ GitHub
+on:
+  workflow_dispatch:
+
+# กำหนดสิทธิ์ให้บอทสามารถอัปโหลดไฟล์ผลลัพธ์กลับเข้า Repository ได้
+permissions:
+  contents: write
+
+jobs:
+  manual-train-model:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # ดึงข้อมูลทั้งหมดมา เพื่อให้การทำ Commit สะดวกขึ้น
+          fetch-depth: 0 
+
+      - name: 🐍 Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: 📦 Install all dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # ติดตั้งไลบรารีที่จำเป็นสำหรับ train_model.py
+          pip install pandas numpy scikit-learn joblib xgboost lightgbm catboost skl2onnx onnx onnxmltools onnxconverter-common
+
+      - name: 🧠 Run Training Script
+        run: |
+          # เรียกใช้สคริปต์เทรนโมเดล
+          python backend/train/train_model.py
+
+      - name: 💾 Commit and Push generated ONNX models
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          
+          # ตรวจสอบและเลือกบันทึกเฉพาะไฟล์ในโฟลเดอร์ data/
+          git add data/*.onnx
+          git add data/model_db.csv
+          
+          # เช็คว่ามีไฟล์อัปเดตไหม ถ้ามีให้ Commit และ Push
