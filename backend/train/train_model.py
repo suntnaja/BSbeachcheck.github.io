@@ -135,8 +135,9 @@ def train_and_evaluate(df):
         },
         
         'CatBoost': {
-            'clf': CatBoostClassifier(verbose=0, random_state=42),
-            'reg': CatBoostRegressor(verbose=0, loss_function='MultiRMSE')
+        'clf': CatBoostClassifier(verbose=0, random_state=42),
+        # ใช้ MultiOutputRegressor ครอบ เพื่อให้มันเทรน CatBoost 6 ตัว (หนีบั๊ก MultiRMSE)
+        'reg': MultiOutputRegressor(CatBoostRegressor(verbose=0, random_state=42))
         }
         
     }
@@ -327,26 +328,88 @@ def convert_catboost_multirmse(filepath, n_targets, timestamp_str):
     m.doc_string = f"Model trained and generated on: {timestamp_str}"
     onnx.save(m, filepath)
 
+def merge_catboost_regressors(multi_model, filepath, initial_type, timestamp_str):
+    print(f"   🔧 กำลังผสาน (Merge) โมเดล CatBoost ทั้ง 6 ตัวเข้าเป็นไฟล์เดียว...")
+    try:
+        nodes = []
+        outputs = []
+        input_name = initial_type[0][0] # ดึงชื่อ 'float_input'
+        input_dim = initial_type[0][1].shape[1] # ดึงขนาดรับข้อมูล (เช่น 8)
+        
+        # วนลูปโมเดล CatBoost ทั้ง 6 ตัวที่ถูกเทรนไว้
+        for i, estimator in enumerate(multi_model.estimators_):
+            tmp_path = f"tmp_cat_{i}.onnx"
+            estimator.save_model(tmp_path, format="onnx")
+            cb_onnx = onnx.load(tmp_path)
+            os.remove(tmp_path)
+            
+            # ดึงสมการต้นไม้ของแต่ละสีออกมา
+            tree_node = cb_onnx.graph.node[0]
+            tree_node.name = f"TreeEnsembleRegressor_Color_{i}"
+            tree_node.input[0] = input_name # ชี้เป้าให้รับข้อมูลจาก float_input
+            
+            out_name = f"out_color_{i}"
+            tree_node.output[0] = out_name
+            
+            nodes.append(tree_node)
+            outputs.append(out_name)
+            
+        # สร้างโหนด Concat เพื่อมัดรวมผลลัพธ์ 6 สีให้กลายเป็น Array เดียว [R, G, B, H, S, V]
+        concat_node = helper.make_node(
+            'Concat',
+            inputs=outputs,
+            outputs=['variable'],
+            axis=1,
+            name='ConcatColors'
+        )
+        nodes.append(concat_node)
+        
+        # สร้างโครงสร้างกราฟ ONNX ใหม่
+        graph_input = helper.make_tensor_value_info(input_name, onnx.TensorProto.FLOAT, [None, input_dim])
+        graph_output = helper.make_tensor_value_info('variable', onnx.TensorProto.FLOAT, [None, 6])
+        
+        graph = helper.make_graph(nodes, 'MergedCatBoost', [graph_input], [graph_output])
+        merged_model = helper.make_model(graph, producer_name='CatBoostMerger')
+        
+        # ตั้งค่ามาตรฐาน ONNX
+        del merged_model.opset_import[:]
+        op_standard = merged_model.opset_import.add()
+        op_standard.domain = ''
+        op_standard.version = 14
+        op_ml = merged_model.opset_import.add()
+        op_ml.domain = 'ai.onnx.ml'
+        op_ml.version = 3
+        
+        # ฝังเวลา
+        meta = merged_model.metadata_props.add()
+        meta.key = "creation_time"
+        meta.value = timestamp_str
+        merged_model.doc_string = f"Model trained and generated on: {timestamp_str}"
+        
+        onnx.save(merged_model, filepath)
+        print("   ✅ ผสานไฟล์สำเร็จ ได้ไฟล์ CatBoost_Regressor.onnx ที่สมบูรณ์ 100%!")
+        return True
+    except Exception as e:
+        print(f"   ❌ เกิดข้อผิดพลาดในการผสาน ONNX: {e}")
+        return False
+
 def save_to_onnx(model, filepath, initial_type, timestamp_str):
     try:
-        # 🌟 1. จัดการ CatBoost (เซฟแล้วเรียกฟังก์ชันซ่อม)
-        if 'CatBoost' in type(model).__name__:
+        # A. ดักจับ CatBoost Regressor แบบ 6 ตัว (ส่งไปให้ฟังก์ชัน Merge)
+        if 'MultiOutputRegressor' in type(model).__name__ and 'CatBoost' in type(model.estimators_[0]).__name__:
+            return merge_catboost_regressors(model, filepath, initial_type, timestamp_str)
+            
+        # B. ดักจับ CatBoost Classifier
+        if 'CatBoostClassifier' in type(model).__name__:
             model.save_model(filepath, format="onnx")
-        
-            if 'Regressor' in type(model).__name__:
-                convert_catboost_multirmse(filepath, 6, timestamp_str)
-                return True
-        
+            fix_catboost_onnx(filepath, "classifier", 4) # เรียกใช้ฟังก์ชันซ่อม Classifier เดิมที่คุณมี
+            
+            # โหลดมาฝังเวลาอีกรอบ
             onnx_model = onnx.load(filepath)
-            for node in onnx_model.graph.node:
-                if node.op_type == 'TreeEnsembleClassifier':
-                    _fix_tree_node(node, 4, is_classifier=True)
-        
             meta = onnx_model.metadata_props.add()
             meta.key = "creation_time"
             meta.value = timestamp_str
             onnx_model.doc_string = f"Model trained and generated on: {timestamp_str}"
-        
             onnx.save(onnx_model, filepath)
             return True
             
