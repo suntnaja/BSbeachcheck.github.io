@@ -40,7 +40,5 @@ jobs:
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           
-          # ตรวจสอบและเลือกบันทึกเฉพาะไฟล์ในโฟลเดอร์ data/
-          git add backend/data/*.onnx
-          
-          # เช็คว่ามีไฟล์อัปเดตไหม ถ้ามีให้ Commit และ Push
+          git add .
+          git diff --quiet && git diff --staged --quiet || (git commit -m "🧪 Manual Test Run: Update Database & Models" && git push)
